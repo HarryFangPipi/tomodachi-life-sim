@@ -1,0 +1,23 @@
+{
+  "host": "0.0.0.0",
+  "port": 8001,
+  "ollama_url": "http://localhost:11434",
+  "preferred_models": [
+    "qwen2.5vl",
+    "qwen2.5",
+    "llama3.2:3b",
+    "llama3.2",
+    "qwen3",
+    "gpt-oss:20b",
+    "mistral",
+    "phi3",
+    "gemma2:2b"
+  ],
+  "tick_seconds": 0.8,
+  "game_hours_per_tick": 0.05,
+  "max_agents": 24,
+  "save_path": "data/savegame.json",
+  "autoload_save": true,
+  "autosave_seconds": 20
+}
+

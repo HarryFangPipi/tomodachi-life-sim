@@ -1,0 +1,2980 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>友达世界 — 多Agent社会模拟</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#F6E8C8; color:#3D2B1A;
+  font-family:'Courier New',monospace;
+  display:flex; flex-direction:column; height:100vh; overflow:hidden;
+}
+#header {
+  background:linear-gradient(to bottom,#F28B5B,#DF7046);
+  padding:7px 16px; display:flex; align-items:center; gap:14px;
+  border-bottom:3px solid #B95B35; flex-shrink:0;
+  box-shadow:0 2px 8px rgba(150,72,34,.24);
+}
+#header h1 {
+  font-size:18px; color:#fff;
+  text-shadow:1px 1px 0 #AA3300,2px 2px 0 rgba(0,0,0,.18);
+  letter-spacing:2px;
+}
+#clock { font-size:21px; color:#FFF8E0; font-weight:bold; min-width:58px; text-shadow:1px 1px 0 #993300; }
+#model-badge {
+  font-size:11px; background:rgba(255,255,255,.22); color:#FFF8E0;
+  padding:3px 10px; border-radius:20px; border:1px solid rgba(255,255,255,.38);
+}
+#status-bar { font-size:11px; color:rgba(255,255,255,.85); margin-left:auto; background:rgba(0,0,0,.15); padding:2px 10px; border-radius:10px; }
+#main { display:flex; flex:1; overflow:hidden; }
+#canvas-wrap { position:relative; flex-shrink:0; background:#E9DAB9; overflow:hidden; }
+#gameCanvas { display:block; image-rendering:pixelated; image-rendering:crisp-edges; }
+#sidebar {
+  width:316px; flex-shrink:0; display:flex; flex-direction:column;
+  background:#E9DAB9; border-left:3px solid #B99B6E;
+}
+#agents-panel { padding:10px; border-bottom:2px solid #C8A878; overflow-y:auto; max-height:46%; }
+#agents-panel h2 { font-size:11px; color:#7A5A2A; margin-bottom:7px; letter-spacing:1px; }
+.agent-card {
+  background:#FFF8F0; border-radius:8px; padding:7px 10px; margin-bottom:6px;
+  display:flex; align-items:center; gap:8px;
+  border:1.5px solid #C8A878;
+  box-shadow:2px 2px 0 #C8A878;
+}
+.agent-dot { width:15px; height:15px; border-radius:50%; flex-shrink:0; border:2px solid #FFF8F0; box-shadow:0 0 0 1.5px #7A5A2A; }
+.agent-info { flex:1; min-width:0; }
+.agent-name { font-size:12px; font-weight:bold; }
+.agent-status { font-size:10px; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.agent-thought { font-size:10px; color:#B56A42; margin-top:2px; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.agent-loc { font-size:10px; color:#66AACC; }
+.need-bars { display:grid; grid-template-columns:1fr 1fr; gap:3px 7px; margin-top:5px; }
+.need-row { display:flex; align-items:center; gap:4px; min-width:0; }
+.need-label { width:24px; font-size:9px; color:#8A7250; flex-shrink:0; }
+.need-track { height:5px; flex:1; background:#E8D7B5; border:1px solid #C8A878; box-shadow:inset 1px 1px 0 rgba(0,0,0,.06); overflow:hidden; }
+.need-fill { display:block; height:100%; width:0%; background:#66BB66; }
+.need-fill.warn { background:#E6B43C; }
+.need-fill.bad { background:#D85A42; }
+#log-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; padding:10px; }
+#log-panel h2 { font-size:11px; color:#7A5A2A; margin-bottom:5px; letter-spacing:1px; flex-shrink:0; }
+#log-list {
+  flex:1; overflow-y:auto; font-size:10px; line-height:1.6;
+  background:#FFF8F0; border:1.5px solid #C8A878; border-radius:8px;
+  box-shadow:2px 2px 0 #C8A878;
+  padding:6px 8px;
+}
+#log-list::-webkit-scrollbar { width:4px; }
+#log-list::-webkit-scrollbar-thumb { background:#C8A878; border-radius:2px; }
+.log-entry { padding:3px 0; border-bottom:1px solid #F2E5C8; display:flex; gap:5px; align-items:flex-start; }
+.log-entry:last-child { border-bottom:none; }
+.log-time { color:#A88858; flex-shrink:0; min-width:34px; font-family:'Courier New',monospace; }
+.log-text { word-break:break-all; flex:1; }
+.log-meet { color:#D86A28; font-weight:bold; }
+.log-chat { color:#3088B0; }
+.log-move { color:#5AA838; }
+.log-info { color:#8888A0; }
+#footer {
+  background:linear-gradient(to bottom,#F28B5B,#DF7046);
+  border-top:2px solid #B95B35; padding:4px 14px;
+  font-size:10px; color:rgba(255,255,255,.85); flex-shrink:0;
+}
+#legend {
+  position:absolute; bottom:10px; left:10px;
+  background:rgba(255,255,255,.9); padding:8px 12px; border-radius:10px;
+  font-size:10px; pointer-events:none; border:2px solid #FFCCAA;
+  box-shadow:0 2px 10px rgba(0,0,0,.12); color:#553322;
+}
+.leg-row { display:flex; align-items:center; gap:6px; margin:2px 0; }
+.leg-box { width:12px; height:8px; border-radius:2px; flex-shrink:0; border:1px solid rgba(0,0,0,.15); }
+#agent-inspector {
+  display:none; position:absolute; z-index:200;
+  width:272px; max-height:420px; flex-direction:column;
+  background:#FFFAF5; border:2.5px solid #FF9966;
+  border-radius:14px; box-shadow:0 8px 32px rgba(180,80,30,.22); overflow:hidden;
+}
+#agent-inspector.visible { display:flex; }
+.insp-header {
+  display:flex; align-items:center; gap:8px; padding:9px 12px;
+  background:linear-gradient(to bottom,#FFF0E6,#FFE4CC);
+  flex-shrink:0; border-bottom:2px solid #FFCCAA;
+}
+#insp-dot { width:18px; height:18px; border-radius:50%; flex-shrink:0; border:2px solid rgba(255,255,255,.7); box-shadow:0 1px 4px rgba(0,0,0,.2); }
+.insp-title-block { flex:1; min-width:0; }
+#insp-name { font-size:14px; font-weight:bold; }
+#insp-job { font-size:10px; color:#AA7755; margin-top:1px; }
+#insp-close { background:#FF9966; border:none; color:#fff; font-size:13px; cursor:pointer; padding:2px 7px; line-height:1; border-radius:8px; flex-shrink:0; font-weight:bold; }
+#insp-close:hover { background:#FF7744; }
+#insp-personality { padding:8px 12px; font-size:10px; color:#776655; line-height:1.6; border-bottom:1px solid #FFE0C8; flex-shrink:0; font-style:italic; background:rgba(255,240,220,.35); }
+#insp-thought { padding:7px 12px; font-size:11px; color:#B45F36; line-height:1.45; border-bottom:1px solid #FFE0C8; flex-shrink:0; background:#FFF3E8; }
+.insp-row { display:flex; justify-content:space-between; align-items:center; padding:6px 12px; font-size:10px; border-bottom:1px solid #FFE0C8; flex-shrink:0; }
+#insp-status { color:#44AA66; font-weight:bold; }
+#insp-loc { color:#6699CC; }
+.insp-section-title { padding:7px 12px 4px; font-size:10px; color:#CC6633; letter-spacing:1px; flex-shrink:0; font-weight:bold; }
+#insp-memories { flex:1; overflow-y:auto; padding:0 12px 10px; }
+#insp-memories::-webkit-scrollbar { width:4px; }
+#insp-memories::-webkit-scrollbar-thumb { background:#FFCCAA; border-radius:2px; }
+.insp-mem { font-size:10px; color:#665544; padding:5px 0; border-bottom:1px solid rgba(255,200,170,.5); line-height:1.5; }
+.insp-mem:last-child { border-bottom:none; }
+.insp-mem-idx { color:#FFAA77; font-size:9px; margin-right:3px; font-weight:bold; }
+#insp-chat { background:#5BBF7B; border:none; color:#fff; font-size:11px; cursor:pointer; padding:3px 9px; line-height:1; border-radius:8px; flex-shrink:0; font-weight:bold; }
+#insp-chat:hover { background:#46A865; }
+
+/* ── 暂停按钮 ── */
+#pause-btn {
+  font-size:13px; background:rgba(255,255,255,.28); color:#fff;
+  border:1.5px solid rgba(255,255,255,.55); border-radius:20px;
+  padding:3px 12px; cursor:pointer; font-family:inherit; font-weight:bold;
+  letter-spacing:1px; transition:background .15s; white-space:nowrap;
+}
+#pause-btn:hover { background:rgba(255,255,255,.45); }
+#pause-btn.paused { background:#FFE08A; color:#8A5A00; border-color:#FFC94D; }
+
+/* ── 角色对话面板 ── */
+#chat-panel {
+  display:none; position:absolute; z-index:240; right:14px; bottom:14px;
+  width:290px; height:368px; flex-direction:column;
+  background:#FFFAF5; border:2.5px solid #5BBF7B;
+  border-radius:14px; box-shadow:0 8px 32px rgba(40,120,60,.25); overflow:hidden;
+}
+#chat-panel.visible { display:flex; }
+.chat-header {
+  display:flex; align-items:center; gap:8px; padding:9px 12px;
+  background:linear-gradient(to bottom,#E9F8EE,#D6F0DE);
+  flex-shrink:0; border-bottom:2px solid #BFE6CC;
+}
+#chat-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; border:2px solid rgba(255,255,255,.7); box-shadow:0 1px 4px rgba(0,0,0,.2); }
+#chat-name { flex:1; font-size:13px; font-weight:bold; color:#2E7D4F; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#chat-close { background:#5BBF7B; border:none; color:#fff; font-size:13px; cursor:pointer; padding:2px 7px; line-height:1; border-radius:8px; font-weight:bold; }
+#chat-close:hover { background:#46A865; }
+#chat-msgs { flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:7px; background:#FBF7F0; }
+#chat-msgs::-webkit-scrollbar { width:4px; }
+#chat-msgs::-webkit-scrollbar-thumb { background:#BFE6CC; border-radius:2px; }
+.chat-msg { max-width:82%; padding:6px 10px; border-radius:12px; font-size:11px; line-height:1.45; word-break:break-word; }
+.chat-msg.user { align-self:flex-end; background:#5BBF7B; color:#fff; border-bottom-right-radius:3px; }
+.chat-msg.agent { align-self:flex-start; background:#fff; color:#3D2B1A; border:1.5px solid #E0D4C4; border-bottom-left-radius:3px; }
+.chat-msg.typing { align-self:flex-start; color:#999; font-style:italic; background:transparent; padding:2px 4px; }
+.chat-hint { text-align:center; font-size:10px; color:#A89C88; padding:6px 8px; }
+#chat-input-row { display:flex; gap:6px; padding:8px; border-top:2px solid #BFE6CC; background:#F2EFE6; flex-shrink:0; }
+#chat-input { flex:1; min-width:0; font-family:inherit; font-size:12px; padding:6px 9px; border:1.5px solid #C8DCCE; border-radius:18px; outline:none; background:#fff; }
+#chat-input:focus { border-color:#5BBF7B; }
+#chat-send { background:#5BBF7B; border:none; color:#fff; font-size:12px; font-weight:bold; padding:0 14px; border-radius:18px; cursor:pointer; font-family:inherit; }
+#chat-send:hover { background:#46A865; }
+#chat-send:disabled { background:#BBB; cursor:default; }
+
+/* ── 添加居民弹窗 ─────────────────────────────────── */
+#add-agent-btn {
+  font-size:13px; background:rgba(255,255,255,.28); color:#fff;
+  border:1.5px solid rgba(255,255,255,.55); border-radius:20px;
+  padding:3px 12px; cursor:pointer; font-family:inherit; font-weight:bold;
+  letter-spacing:1px; transition:background .15s;
+}
+#add-agent-btn:hover { background:rgba(255,255,255,.45); }
+#add-agent-overlay {
+  display:none; position:fixed; inset:0; z-index:900;
+  background:rgba(60,30,10,.45); align-items:center; justify-content:center;
+}
+#add-agent-overlay.open { display:flex; }
+#add-agent-modal {
+  background:#FFFAF5; border:2.5px solid #FF9966; border-radius:16px;
+  padding:20px 22px; width:320px; max-width:95vw;
+  box-shadow:0 12px 40px rgba(180,80,30,.28); font-family:'Courier New',monospace;
+}
+#add-agent-modal h3 {
+  font-size:14px; color:#CC5522; margin-bottom:14px;
+  text-align:center; letter-spacing:1px;
+}
+.form-row { margin-bottom:10px; }
+.form-row label { font-size:10px; color:#7A5A2A; display:block; margin-bottom:3px; letter-spacing:.5px; }
+.form-row input, .form-row textarea, .form-row select {
+  width:100%; background:#FFF0E0; border:1.5px solid #C8A878;
+  border-radius:6px; padding:5px 8px; font-family:'Courier New',monospace;
+  font-size:11px; color:#3D2B1A; outline:none;
+}
+.form-row input:focus, .form-row textarea:focus, .form-row select:focus {
+  border-color:#FF9966;
+}
+.form-row textarea { resize:vertical; min-height:56px; }
+.color-row { display:flex; gap:10px; }
+.color-item { flex:1; }
+.color-item label { font-size:10px; color:#7A5A2A; display:block; margin-bottom:3px; }
+.color-item input[type=color] {
+  width:100%; height:28px; border:1.5px solid #C8A878; border-radius:6px;
+  cursor:pointer; padding:1px 3px; background:#FFF0E0;
+}
+.modal-btns { display:flex; gap:8px; margin-top:14px; }
+.modal-btns button {
+  flex:1; padding:7px; border:none; border-radius:8px; font-family:inherit;
+  font-size:12px; font-weight:bold; cursor:pointer; transition:opacity .15s;
+}
+.modal-btns button:hover { opacity:.85; }
+#modal-cancel { background:#D0C0A8; color:#3D2B1A; }
+#modal-submit { background:linear-gradient(to bottom,#FF9F6A,#FF7844); color:#fff; }
+#modal-msg { font-size:10px; text-align:center; margin-top:6px; min-height:14px; color:#CC5522; }
+@media (max-width: 760px) {
+  body { min-width:0; }
+  #header {
+    flex-wrap:wrap; gap:8px; padding:7px 10px;
+  }
+  #header h1 { font-size:16px; writing-mode:horizontal-tb; letter-spacing:1px; }
+  #clock { font-size:18px; min-width:52px; }
+  #model-badge { font-size:10px; max-width:150px; white-space:normal; line-height:1.25; }
+  #add-agent-btn { padding:3px 10px; font-size:12px; }
+  #status-bar { margin-left:0; font-size:10px; }
+  #main { flex-direction:column; }
+  #canvas-wrap {
+    width:100% !important;
+    min-height:270px;
+    border-bottom:3px solid #C8A878;
+  }
+  #sidebar {
+    width:100%;
+    flex:1 1 auto;
+    min-height:0;
+    border-left:none;
+    border-top:3px solid #C8A878;
+  }
+  #agents-panel {
+    max-height:42%;
+    padding:8px;
+  }
+  #log-panel { padding:8px; }
+  .agent-card { padding:6px 8px; }
+  #footer { white-space:normal; line-height:1.35; padding:4px 8px; }
+}
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>友达世界</h1>
+  <div id="clock">08:00</div>
+  <div id="model-badge">model: ...</div>
+  <button id="pause-btn" onclick="togglePause()">⏸ 暂停</button>
+  <button id="add-agent-btn" onclick="openAddAgentModal()">＋ 新居民</button>
+  <div id="status-bar">连接中...</div>
+</div>
+
+<!-- 添加居民弹窗 -->
+<div id="add-agent-overlay" onclick="if(event.target===this)closeAddAgentModal()">
+  <div id="add-agent-modal">
+    <h3>🏠 添加新居民</h3>
+    <div class="form-row">
+      <label>姓名 *</label>
+      <input id="f-name" type="text" placeholder="例：Frank" maxlength="20">
+    </div>
+    <div class="form-row">
+      <label>职业</label>
+      <input id="f-job" type="text" placeholder="例：音乐家" maxlength="20">
+    </div>
+    <div class="form-row">
+      <label>性格描述</label>
+      <textarea id="f-personality" placeholder="例：开朗的音乐家，热爱即兴创作，喜欢和大家分享音乐。"></textarea>
+    </div>
+    <div class="form-row">
+      <label>初始住所</label>
+      <select id="f-home"></select>
+    </div>
+    <div class="form-row">
+      <div class="color-row">
+        <div class="color-item">
+          <label>衣服颜色</label>
+          <input id="f-color" type="color" value="#9C88FF">
+        </div>
+        <div class="color-item">
+          <label>肤色</label>
+          <input id="f-skin" type="color" value="#FFCC80">
+        </div>
+        <div class="color-item">
+          <label>发色</label>
+          <input id="f-hair" type="color" value="#5D4037">
+        </div>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button id="modal-cancel" onclick="closeAddAgentModal()">取消</button>
+      <button id="modal-submit" onclick="submitNewAgent()">加入小镇 ✓</button>
+    </div>
+    <div id="modal-msg"></div>
+  </div>
+</div>
+<div id="main">
+  <div id="canvas-wrap">
+    <canvas id="gameCanvas"></canvas>
+    <div id="legend">
+      <div class="leg-row"><div class="leg-box" style="background:#F0D898"></div>地面</div>
+      <div class="leg-row"><div class="leg-box" style="background:#D4B97A"></div>小路</div>
+      <div class="leg-row"><div class="leg-box" style="background:#4A90D0"></div>水面</div>
+      <div class="leg-row"><div class="leg-box" style="background:#4DC045"></div>树木</div>
+    </div>
+    <div id="agent-inspector">
+      <div class="insp-header">
+        <div id="insp-dot"></div>
+        <div class="insp-title-block">
+          <div id="insp-name"></div>
+          <div id="insp-job"></div>
+        </div>
+        <button id="insp-chat" onclick="openChatFromInspector()">💬 对话</button>
+        <button id="insp-close" onclick="hideInspector()">✕</button>
+      </div>
+      <div id="insp-personality"></div>
+      <div id="insp-thought"></div>
+      <div class="insp-row">
+        <span id="insp-status"></span>
+        <span id="insp-loc"></span>
+      </div>
+      <div class="insp-section-title">▶ 最近记忆</div>
+      <div id="insp-memories"></div>
+    </div>
+    <div id="chat-panel">
+      <div class="chat-header">
+        <div id="chat-dot"></div>
+        <div id="chat-name"></div>
+        <button id="chat-close" onclick="closeChat()">✕</button>
+      </div>
+      <div id="chat-msgs"></div>
+      <div id="chat-input-row">
+        <input id="chat-input" type="text" placeholder="对TA说点什么…" maxlength="100"
+               onkeydown="if(event.key==='Enter')sendChat()">
+        <button id="chat-send" onclick="sendChat()">发送</button>
+      </div>
+    </div>
+  </div>
+  <div id="sidebar">
+    <div id="agents-panel">
+      <h2>▶ 居民状态</h2>
+      <div id="agent-cards"></div>
+    </div>
+    <div id="log-panel">
+      <h2>▶ 实时事件</h2>
+      <div id="log-list"></div>
+    </div>
+  </div>
+</div>
+<div id="footer">
+  拖拽平移 | 滚轮缩放 | 点击角色查看详情 — 2.5D等距像素风 · AI多Agent社会模拟
+</div>
+
+<script>
+// ============================================================
+// STATE & CONSTANTS
+// ============================================================
+let gameState = null, ws = null;
+let canvas, ctx;
+let TILE_W = 64, TILE_H = 32;  // isometric tile dimensions
+let camX = 300, camY = 60;      // screen position of iso-origin (col=0,row=0) top corner
+let isDragging = false, hasDragged = false;
+let dragStart = {x:0,y:0}, camStart = {x:0,y:0};
+let selectedAgent = null;
+let tileLocMap = {};      // "col,row" → location key
+let locCenterTile = {};   // locKey  → {c, r} of nearest type-2 tile to center
+let buildingBounds = {};  // locKey  → {minC,maxC,minR,maxR} bounding box of type-2 footprint
+let sortedTiles = null;       // painter-order [c,r,t] cache — rebuilt only on state load
+let buildingTilesList = null; // type-2 tiles only, same order
+let wsReconnectTimer = null;
+let wsReconnectDelay = 3000;  // ms; doubles on each failure, capped at 30 s
+let camInitialized = false;
+let animTs = 0;
+const spriteSheets = {};   // id → HTMLImageElement
+const agentDir    = {};    // id → 0 (SW) | 1 (SE)
+const tileImages  = {};    // name → HTMLImageElement
+
+// Building colors per location
+const LOC_BASE = {
+  cafe:        '#BE684C',
+  library:     '#5C6FAC',
+  park:        '#5FAD60',
+  town_square: '#C6A24A',
+  office:      '#6A9AAD',
+  house_alice: '#C96B91',
+  house_bob:   '#5B85C4',
+  house_carol: '#C98649',
+  house_diana: '#966AB5',
+  house_eve:   '#5FAE9E',
+  apartment:   '#7E8AA2',
+};
+// Building height multiplier (× TILE_H)
+const LOC_H = {
+  cafe:1.35, library:1.45, park:1.0, town_square:1.15,
+  office:1.55, house_alice:1.25, house_bob:1.25, house_carol:1.25,
+  house_diana:1.25, house_eve:1.25, apartment:1.75,
+};
+// Peaked roof colors — all cleared for open-top Kairosoft interior view.
+// Interior back walls (drawBuildingBackWall) replace them.
+const ROOF_COLORS = {
+  cafe:        '',
+  library:     '',
+  office:      '',
+  town_square: '',
+  park:        '',
+  house_alice: '',
+  house_bob:   '',
+  house_carol: '',
+  house_diana: '',
+  house_eve:   '',
+  apartment:   '',
+};
+// Interior floor colors (null = keep roof-tint)
+const FLOOR_C = {
+  cafe:        '#B9784D',
+  library:     '#8A6744',
+  park:        '#A8B890',
+  town_square: '#BDB494',
+  office:      '#AAB5B4',
+  house_alice: '#CFA56B',
+  house_bob:   '#B99B72',
+  house_carol: '#C69A64',
+  house_diana: '#B9A982',
+  house_eve:   '#BCA66A',
+  apartment:   '#A6A79B',
+};
+
+// ============================================================
+// COLOR HELPERS
+// ============================================================
+function darken(hex, f) {
+  const n = parseInt(hex.slice(1),16);
+  return `rgb(${Math.round(((n>>16)&255)*f)},${Math.round(((n>>8)&255)*f)},${Math.round((n&255)*f)})`;
+}
+function lighten(hex, f) {
+  const n = parseInt(hex.slice(1),16);
+  return `rgb(${Math.min(255,Math.round(((n>>16)&255)*f))},${Math.min(255,Math.round(((n>>8)&255)*f))},${Math.min(255,Math.round((n&255)*f))})`;
+}
+
+// ============================================================
+// SPRITE / TILE LOADING
+// ============================================================
+function loadSprites() {
+  ['alice','bob','carol','diana','eve'].forEach(ensureSprite);
+}
+
+// Lazily fetch a sprite sheet for any agent id (built-in or newly added).
+// The Image is stored even if it 404s — naturalWidth stays 0, so drawCharacter
+// falls back to the block renderer and we never re-request.
+function ensureSprite(id) {
+  if (id in spriteSheets) return;
+  const img = new Image();
+  img.src = `/static/sprites/${id}.png`;
+  spriteSheets[id] = img;
+}
+
+function loadTiles() {
+  ['path','water','floor_wood','floor_stone','floor_tile',
+   'wall_cafe','wall_library','wall_office','wall_home',
+   'tree','bench','table_cafe','fountain','bookshelf',
+   'computer','easel','stove','lamp','blackboard'].forEach(n => {
+    const img = new Image();
+    img.src = `/static/tiles/${n}.png`;
+    tileImages[n] = img;
+  });
+  // Replace grass with procedurally-generated Kairosoft-style tiles.
+  // Build 3 variants (different base tint + speck pattern) so open lawns
+  // don't read as one perfectly-uniform carpet; picked per-tile in drawGrassTile.
+  tileImages.grassVariants = [
+    _buildGrassTile(12345, '#73B253'),
+    _buildGrassTile(48271, '#6CAB4D'),
+    _buildGrassTile(91537, '#79B95A'),
+  ];
+  tileImages.grass = tileImages.grassVariants[0];
+}
+
+// ---- Kairosoft-style grass texture (offscreen, cached) ----
+function _buildGrassTile(seedStart, baseHex) {
+  const cv = document.createElement('canvas');
+  cv.width = 64; cv.height = 32;
+  const c = cv.getContext('2d');
+  c.imageSmoothingEnabled = false;
+  // Clip to iso diamond
+  c.beginPath();
+  c.moveTo(32, 0); c.lineTo(64, 16); c.lineTo(32, 32); c.lineTo(0, 16);
+  c.closePath();
+  c.clip();
+  // Base medium green
+  c.fillStyle = baseHex || '#73B253';
+  c.fillRect(0, 0, 64, 32);
+  // Darker undertone bands for depth
+  c.fillStyle = 'rgba(87,145,62,0.45)';
+  for (let y = 0; y < 32; y += 4) c.fillRect(0, y, 64, 1);
+  // Bright grass dots — 18 random points with a deterministic seed
+  let s = seedStart || 12345;
+  const rnd = () => { s = (s*9301 + 49297) % 233280; return s/233280; };
+  c.fillStyle = '#8DCA69';
+  for (let i = 0; i < 22; i++) {
+    const x = Math.floor(rnd() * 64);
+    const y = Math.floor(rnd() * 32);
+    c.fillRect(x, y, 1, 1);
+  }
+  // Lighter highlight specks
+  c.fillStyle = '#B2DA7C';
+  for (let i = 0; i < 8; i++) {
+    const x = Math.floor(rnd() * 64);
+    const y = Math.floor(rnd() * 32);
+    c.fillRect(x, y, 1, 1);
+  }
+  // Small darker shadow specks
+  c.fillStyle = '#5C8F45';
+  for (let i = 0; i < 6; i++) {
+    const x = Math.floor(rnd() * 64);
+    const y = Math.floor(rnd() * 32);
+    c.fillRect(x, y, 1, 1);
+  }
+  // Diamond edge dark outline (Kairosoft signature)
+  c.strokeStyle = '#4F7F3E';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.moveTo(32, 0.5); c.lineTo(63.5, 16); c.lineTo(32, 31.5); c.lineTo(0.5, 16);
+  c.closePath();
+  c.stroke();
+  // Mark as a HTMLCanvasElement-shaped tile: code checks .complete && .naturalWidth
+  // Wrap so the existing checks (img?.complete && img.naturalWidth > 0) pass
+  cv.complete = true;
+  Object.defineProperty(cv, 'naturalWidth', { value: 64 });
+  Object.defineProperty(cv, 'naturalHeight', { value: 32 });
+  return cv;
+}
+
+// Return sprite frame index for an agent at time ts
+function agentSpriteInfo(agent, ts) {
+  const isMoving = agent.current_location !== agent.target_location;
+
+  // Direction: detect from target location center vs current position
+  let dir = agentDir[agent.id] ?? 0;
+  if (isMoving && gameState?.locations) {
+    const tgt = gameState.locations[agent.target_location];
+    if (tgt) {
+      const [tc, tr] = tgt.center;
+      // In this iso projection, moving toward higher col → SE, higher row → SW
+      const dc = tc - agent.x, dr = tr - agent.y;
+      dir = (dc > dr) ? 1 : 0;
+      agentDir[agent.id] = dir;
+    }
+  }
+
+  // Walk frame 0-3 cycling at ~220 ms/frame while moving, 0 while standing
+  const walkFrame = isMoving ? Math.floor(ts / 220) % 4 : 0;
+
+  // Sprite layout: frames 0-3 = dir 0 (SW), frames 4-7 = dir 1 (SE)
+  const frameIdx = dir * 4 + walkFrame;
+  return frameIdx;
+}
+
+// ============================================================
+// ISOMETRIC PROJECTION
+// ============================================================
+function isoToScreen(col, row) {
+  return {
+    x: camX + (col - row) * TILE_W / 2,
+    y: camY + (col + row) * TILE_H / 2
+  };
+}
+
+function isoDiamond(sx, sy, fill, stroke, lw) {
+  const tw = TILE_W, th = TILE_H;
+  ctx.beginPath();
+  ctx.moveTo(sx,         sy);
+  ctx.lineTo(sx + tw/2,  sy + th/2);
+  ctx.lineTo(sx,         sy + th);
+  ctx.lineTo(sx - tw/2,  sy + th/2);
+  ctx.closePath();
+  if (fill)   { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw||0.6; ctx.stroke(); }
+}
+
+// ============================================================
+// TILE LOC MAP (type2/5 → nearest location)
+// ============================================================
+function buildLocMap() {
+  if (!gameState?.grid || !gameState?.locations) return;
+  tileLocMap = {};
+  locCenterTile = {};
+  buildingBounds = {};
+  const grid = gameState.grid;
+  const locs = Object.entries(gameState.locations);
+  // Per-location: track nearest type-2 tile distance to its stated center
+  const locBestD = {};
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const t = grid[r][c];
+      if (t === 2 || t === 5) {
+        let best = 'office', bestD = Infinity;
+        for (const [name, loc] of locs) {
+          const dx = c - loc.center[0], dy = r - loc.center[1];
+          const d = dx*dx + dy*dy;
+          if (d < bestD) { bestD = d; best = name; }
+        }
+        tileLocMap[`${c},${r}`] = best;
+        // Track nearest type-2 tile to each location's center
+        if (t === 2) {
+          const loc = gameState.locations[best];
+          if (loc) {
+            const dx = c - loc.center[0], dy = r - loc.center[1];
+            const d = dx*dx + dy*dy;
+            if (locBestD[best] === undefined || d < locBestD[best]) {
+              locBestD[best] = d;
+              locCenterTile[best] = `${c},${r}`;
+            }
+          }
+          // Track bounding box of type-2 footprint (used for peaked roof)
+          const bb = buildingBounds[best];
+          if (!bb) {
+            buildingBounds[best] = { minC: c, maxC: c, minR: r, maxR: r };
+          } else {
+            if (c < bb.minC) bb.minC = c;
+            if (c > bb.maxC) bb.maxC = c;
+            if (r < bb.minR) bb.minR = r;
+            if (r > bb.maxR) bb.maxR = r;
+          }
+        }
+      }
+    }
+  }
+  buildTileCache();
+}
+
+// Build sorted tile arrays once per state load — avoids re-sorting 900+ tiles every frame
+function buildTileCache() {
+  if (!gameState?.grid) return;
+  const grid = gameState.grid;
+  const ROWS = grid.length, COLS = grid[0]?.length || 0;
+  const tiles = [];
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      tiles.push([c, r, grid[r][c]]);
+  tiles.sort((a, b) => (a[0]+a[1]) - (b[0]+b[1]) || a[0] - b[0]);
+  sortedTiles = tiles;
+  buildingTilesList = tiles.filter(([c, r, t]) => t === 2);
+}
+
+// ============================================================
+// TILE DRAWING
+// ============================================================
+function drawGrassTile(sx, sy, col, row, type) {
+  const tw = TILE_W, th = TILE_H;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  // Pick a deterministic grass variant per tile to break up uniform lawns
+  const _gv = tileImages.grassVariants;
+  const img = _gv ? _gv[Math.abs(col*7 + row*13) % _gv.length] : tileImages.grass;
+  if (img?.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, Math.round(sx - tw/2), Math.round(sy), tw, th);
+  } else {
+    isoDiamond(sx, sy, (col+row)%2 ? '#EDD090' : '#F0D898', '#C8A060', 0.4);
+  }
+  // Flower overlay for type-6 tiles
+  if (type === 6 && tw >= 40) {
+    const seed = (col * 1637 + row * 431) | 0;
+    const fcols = ['#FF90B0','#FFE040','#FF6090','#AADDFF','#FFAA44'];
+    const fc = fcols[Math.abs(seed) % 5];
+    const fx = Math.round(sx + ((seed * 11) % (tw - 8)) - tw/4);
+    const fy = Math.round(sy + ((seed * 17) % (th - 6)) + 2);
+    ctx.beginPath();
+    ctx.moveTo(sx, sy); ctx.lineTo(sx+tw/2, sy+th/2);
+    ctx.lineTo(sx, sy+th); ctx.lineTo(sx-tw/2, sy+th/2);
+    ctx.closePath(); ctx.clip();
+    ctx.fillStyle = fc;
+    ctx.fillRect(fx+1, fy, 1, 3);
+    ctx.fillRect(fx, fy+1, 3, 1);
+    ctx.fillStyle = '#FFEE44';
+    ctx.fillRect(fx+1, fy+1, 1, 1);
+  }
+  ctx.restore();
+}
+
+function drawPathTile(sx, sy, col, row) {
+  const tw = TILE_W, th = TILE_H;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  const img = tileImages.path;
+  if (img?.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, Math.round(sx - tw/2), Math.round(sy), tw, th);
+  } else {
+    isoDiamond(sx, sy, '#A88050', null);
+    const stone = (col+row)%2 ? '#D4B97A' : '#CAB070';
+    ctx.beginPath();
+    ctx.moveTo(sx, sy+1); ctx.lineTo(sx+tw/2-1, sy+th/2);
+    ctx.lineTo(sx, sy+th-1); ctx.lineTo(sx-tw/2+1, sy+th/2);
+    ctx.closePath(); ctx.fillStyle = stone; ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawWaterTile(sx, sy, col, row) {
+  const tw = TILE_W, th = TILE_H;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  const img = tileImages.water;
+  if (img?.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, Math.round(sx - tw/2), Math.round(sy), tw, th);
+  } else {
+    isoDiamond(sx, sy, '#3A80C8', '#2060A0', 0.5);
+  }
+  // Animated sparkle overlay
+  if (tw >= 24) {
+    const wt = animTs / 900;
+    const seed = (col*31+row*17)|0;
+    const spkT = Math.floor(wt*2.5+col*5+row*9) % 6;
+    if (spkT === 0) {
+      ctx.beginPath();
+      ctx.moveTo(sx, sy); ctx.lineTo(sx+tw/2, sy+th/2);
+      ctx.lineTo(sx, sy+th); ctx.lineTo(sx-tw/2, sy+th/2);
+      ctx.closePath(); ctx.clip();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      const ph  = (wt + col*0.35 + row*0.22) % 1;
+      const spx = sx - tw/2 + (seed*13 % (tw-4)) + 2;
+      const spy = sy + th*(ph*0.5+0.1);
+      ctx.fillRect(Math.round(spx), Math.round(spy), 2, 1);
+      ctx.fillRect(Math.round(spx), Math.round(spy), 1, 2);
+    }
+  }
+  ctx.restore();
+}
+
+function drawBuildingTile(sx, sy, col, row) {
+  const tw = TILE_W, th = TILE_H;
+  const locKey = tileLocMap[`${col},${row}`] || 'office';
+  const base   = LOC_BASE[locKey] || '#888888';
+  const floorC  = FLOOR_C[locKey] || null;
+  const roofC   = floorC ? lighten(floorC, 1.08) : lighten(base, 1.45);
+
+  // Flat diamond at ground level — same geometry as every other tile type
+  isoDiamond(sx, sy, roofC, 'rgba(0,0,0,0.22)', 0.6);
+
+  const isCenter = locCenterTile[locKey] === `${col},${row}`;
+  // Apply floor texture to every building tile (park → grass, town_square → floor_stone)
+  if (tw >= 22) _roofFloor(locKey, sx, sy, tw, th, floorC);
+  if (isCenter && tw >= 32)          drawBuildingRoofDetails(locKey, sx, sy, tw, th);
+
+  // Kairosoft-style dark outline on roof diamond (uses building base color darkened)
+  // Only draw on exposed edges (no same-loc neighbor on that side) so interior tiles don't get a grid
+  if (tw >= 22) {
+    const grid = gameState?.grid;
+    if (grid) {
+      const ROWS = grid.length, COLS = grid[0]?.length || 0;
+      const sameLocBldg = (r, c) => {
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+        const t = grid[r][c];
+        if (t !== 2 && t !== 5) return false;
+        return (tileLocMap[`${c},${r}`] || 'office') === locKey;
+      };
+      const outline = darken(base, 0.55);
+      ctx.save();
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 1.2;
+      ctx.lineCap = 'round';
+      // Top-left edge: hidden by (col, row-1)
+      if (!sameLocBldg(row-1, col)) {
+        ctx.beginPath(); ctx.moveTo(sx-tw/2, sy+th/2); ctx.lineTo(sx, sy); ctx.stroke();
+      }
+      // Top-right edge: hidden by (col-1, row)
+      if (!sameLocBldg(row, col-1)) {
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx+tw/2, sy+th/2); ctx.stroke();
+      }
+      // Bottom-right edge: hidden by (col+1, row)
+      if (!sameLocBldg(row, col+1)) {
+        ctx.beginPath(); ctx.moveTo(sx+tw/2, sy+th/2); ctx.lineTo(sx, sy+th); ctx.stroke();
+      }
+      // Bottom-left edge: hidden by (col, row+1)
+      if (!sameLocBldg(row+1, col)) {
+        ctx.beginPath(); ctx.moveTo(sx, sy+th); ctx.lineTo(sx-tw/2, sy+th/2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+}
+
+
+// Location-specific floor texture on the roof diamond face
+function _roofFloor(locKey, sx, sy, tw, th, floorC) {
+  // cafe → floor_tile | library/home → floor_wood | office/plaza → floor_stone
+  const FLOOR_KEY = {
+    cafe:        'floor_tile',
+    library:     'floor_wood',
+    office:      'floor_stone',
+    town_square: 'floor_stone',
+    park:        'grass',
+    house_alice: 'floor_wood',
+    house_bob:   'floor_wood',
+    house_carol: 'floor_wood',
+    house_diana: 'floor_wood',
+    house_eve:   'floor_wood',
+    apartment:   'floor_stone',
+  };
+  const imgKey = FLOOR_KEY[locKey] || 'floor_wood';
+  const img = tileImages[imgKey];
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);       ctx.lineTo(sx+tw/2, sy+th/2);
+  ctx.lineTo(sx, sy+th);    ctx.lineTo(sx-tw/2, sy+th/2);
+  ctx.closePath(); ctx.clip();
+
+  if (img?.complete && img.naturalWidth > 0) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, Math.round(sx - tw/2), Math.round(sy), tw, th);
+  } else {
+    // Canvas fallback: solid floor color
+    ctx.fillStyle = floorC;
+    ctx.fillRect(sx - tw/2, sy, tw, th);
+  }
+  ctx.restore();
+}
+
+
+// Draw a small Kairosoft-style rooftop signboard above the building
+// (a flat plaque with a tiny icon — sits above the roof diamond)
+function _drawRooftopSign(locKey, sx, sy, tw, th) {
+  // Sign sits above the roof tile, centered horizontally on sx
+  const scl = Math.max(0.8, tw / 64);
+  const sw = Math.round(22 * scl), sh = Math.round(14 * scl);
+  const sx0 = Math.round(sx - sw/2);
+  const sy0 = Math.round(sy - sh - Math.round(4 * scl)); // 4px gap above roof apex
+  // Tiny post connecting plaque to roof
+  ctx.save();
+  ctx.fillStyle = '#5A4030';
+  ctx.fillRect(Math.round(sx - 1), sy0 + sh, 2, Math.round(4 * scl));
+
+  // Plaque colors per location
+  const SIGN_BG = {
+    cafe:        '#E66A3A',
+    library:     '#3D2A1A',
+    park:        '#3A8B2A',
+    town_square: '#E6B330',
+    office:      '#5A6A78',
+    house_alice: '#E64488',
+    house_bob:   '#4477DD',
+    house_carol: '#E68833',
+    house_diana: '#9944CC',
+    house_eve:   '#33A89A',
+  };
+  const bg = SIGN_BG[locKey] || '#888';
+  const border = darken(bg, 0.55);
+  // Plaque background with darker outline (1.5px)
+  ctx.fillStyle = border;
+  ctx.fillRect(sx0 - 1, sy0 - 1, sw + 2, sh + 2);
+  ctx.fillStyle = bg;
+  ctx.fillRect(sx0, sy0, sw, sh);
+  // Top highlight (light strip)
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillRect(sx0, sy0, sw, Math.max(1, Math.round(sh * 0.18)));
+
+  // Icon — drawn in white at center
+  const ix = sx, iy = sy0 + sh/2;
+  const ir = Math.max(2, Math.round(scl * 3));
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = Math.max(1, scl);
+  switch (locKey) {
+    case 'cafe': {
+      // Coffee cup: small mug with steam tick
+      ctx.fillRect(Math.round(ix - ir*0.7), Math.round(iy - ir*0.5), Math.round(ir*1.4), Math.round(ir*1.2));
+      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = Math.max(1, scl*0.8);
+      ctx.beginPath();
+      ctx.arc(Math.round(ix + ir*0.85), Math.round(iy + ir*0.1), Math.round(ir*0.45), -Math.PI*0.5, Math.PI*0.5);
+      ctx.stroke();
+      // Steam dot
+      ctx.fillRect(Math.round(ix - 1), Math.round(iy - ir*1.1), 1, Math.max(1, Math.round(scl*1.5)));
+      break;
+    }
+    case 'library': {
+      // Open book: two angled pages
+      ctx.beginPath();
+      ctx.moveTo(ix - ir*1.1, iy + ir*0.5);
+      ctx.lineTo(ix, iy - ir*0.2);
+      ctx.lineTo(ix, iy + ir*0.7);
+      ctx.lineTo(ix - ir*1.1, iy + ir*0.9);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(ix + ir*1.1, iy + ir*0.5);
+      ctx.lineTo(ix, iy - ir*0.2);
+      ctx.lineTo(ix, iy + ir*0.7);
+      ctx.lineTo(ix + ir*1.1, iy + ir*0.9);
+      ctx.closePath(); ctx.fill();
+      // Spine
+      ctx.fillStyle = border;
+      ctx.fillRect(Math.round(ix - 0.5), Math.round(iy - ir*0.2), 1, Math.round(ir*1.1));
+      break;
+    }
+    case 'office': {
+      // Briefcase/card icon: rectangle with handle
+      ctx.fillRect(Math.round(ix - ir), Math.round(iy - ir*0.3), Math.round(ir*2), Math.round(ir*1.1));
+      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = Math.max(1, scl*0.8);
+      ctx.beginPath();
+      ctx.moveTo(ix - ir*0.4, iy - ir*0.3);
+      ctx.lineTo(ix - ir*0.4, iy - ir*0.7);
+      ctx.lineTo(ix + ir*0.4, iy - ir*0.7);
+      ctx.lineTo(ix + ir*0.4, iy - ir*0.3);
+      ctx.stroke();
+      break;
+    }
+    case 'town_square': {
+      // Clock: circle with hands
+      ctx.beginPath(); ctx.arc(ix, iy, ir*0.9, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = border; ctx.lineWidth = Math.max(1, scl*0.7);
+      ctx.beginPath(); ctx.moveTo(ix, iy); ctx.lineTo(ix, iy - ir*0.6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ix, iy); ctx.lineTo(ix + ir*0.5, iy); ctx.stroke();
+      break;
+    }
+    case 'park': {
+      // Leaf shape
+      ctx.beginPath();
+      ctx.ellipse(ix, iy, ir*1.1, ir*0.65, -Math.PI/4, 0, Math.PI*2);
+      ctx.fill();
+      break;
+    }
+    default: {
+      // Houses: a small symbol unique to each resident
+      const HOUSE_ICON = {
+        house_alice: 'heart',
+    house_bob:   'star',
+    house_carol: 'flower',
+    house_diana: 'moon',
+    house_eve:   'diamond',
+    apartment:   'home',
+  };
+      const ic = HOUSE_ICON[locKey] || 'home';
+      if (ic === 'heart') {
+        ctx.beginPath();
+        ctx.arc(ix - ir*0.4, iy - ir*0.1, ir*0.45, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath();
+        ctx.arc(ix + ir*0.4, iy - ir*0.1, ir*0.45, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(ix - ir*0.85, iy + ir*0.05);
+        ctx.lineTo(ix + ir*0.85, iy + ir*0.05);
+        ctx.lineTo(ix, iy + ir*1.0);
+        ctx.closePath(); ctx.fill();
+      } else if (ic === 'star') {
+        ctx.beginPath();
+        for (let k = 0; k < 5; k++) {
+          const a = -Math.PI/2 + k * Math.PI*2/5;
+          const a2 = a + Math.PI/5;
+          ctx.lineTo(ix + Math.cos(a) * ir, iy + Math.sin(a) * ir);
+          ctx.lineTo(ix + Math.cos(a2) * ir*0.45, iy + Math.sin(a2) * ir*0.45);
+        }
+        ctx.closePath(); ctx.fill();
+      } else if (ic === 'flower') {
+        for (let k = 0; k < 5; k++) {
+          const a = k * Math.PI*2/5;
+          ctx.beginPath();
+          ctx.arc(ix + Math.cos(a) * ir*0.5, iy + Math.sin(a) * ir*0.5, ir*0.45, 0, Math.PI*2);
+          ctx.fill();
+        }
+        ctx.fillStyle = '#FFEE44';
+        ctx.beginPath(); ctx.arc(ix, iy, ir*0.32, 0, Math.PI*2); ctx.fill();
+      } else if (ic === 'moon') {
+        ctx.beginPath(); ctx.arc(ix, iy, ir*0.95, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = bg;
+        ctx.beginPath(); ctx.arc(ix + ir*0.35, iy - ir*0.1, ir*0.8, 0, Math.PI*2); ctx.fill();
+      } else if (ic === 'diamond') {
+        ctx.beginPath();
+        ctx.moveTo(ix, iy - ir);
+        ctx.lineTo(ix + ir*0.7, iy);
+        ctx.lineTo(ix, iy + ir);
+        ctx.lineTo(ix - ir*0.7, iy);
+        ctx.closePath(); ctx.fill();
+      } else {
+        // Default home icon
+        ctx.beginPath();
+        ctx.moveTo(ix - ir, iy + ir*0.5);
+        ctx.lineTo(ix - ir, iy - ir*0.1);
+        ctx.lineTo(ix, iy - ir*0.8);
+        ctx.lineTo(ix + ir, iy - ir*0.1);
+        ctx.lineTo(ix + ir, iy + ir*0.5);
+        ctx.closePath(); ctx.fill();
+      }
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+function drawBuildingRoofDetails(locKey, sx, sy, tw, th) {
+  const rcx = sx, rcy = sy + th/2;
+
+  ctx.save();
+  // Clip to the FULL building footprint diamond (not just the center tile)
+  const bb = buildingBounds[locKey];
+  if (bb) {
+    const N = isoToScreen(bb.minC, bb.minR);
+    const E = isoToScreen(bb.maxC, bb.minR);
+    const S = isoToScreen(bb.maxC, bb.maxR);
+    const W = isoToScreen(bb.minC, bb.maxR);
+    ctx.beginPath();
+    ctx.moveTo(N.x,          N.y);
+    ctx.lineTo(E.x + tw/2,   E.y + th/2);
+    ctx.lineTo(S.x,          S.y + th);
+    ctx.lineTo(W.x - tw/2,   W.y + th/2);
+    ctx.closePath();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(sx, sy); ctx.lineTo(sx+tw/2, sy+th/2);
+    ctx.lineTo(sx, sy+th);  ctx.lineTo(sx-tw/2, sy+th/2);
+    ctx.closePath();
+  }
+  ctx.clip();
+
+  // Prop layout: [{k: tileKey, ox: fraction-of-tw, oy: fraction-of-th}]
+  const LAYOUTS = {
+    cafe:        [{k:'table_cafe',ox:-0.22,oy:-0.15},{k:'table_cafe',ox:0.10,oy:-0.20},{k:'bench',ox:-0.04,oy:0.18}],
+    library:     [{k:'bookshelf',ox:-0.20,oy:-0.04},{k:'bookshelf',ox:0.14,oy:-0.04}],
+    park:        [{k:'bench',ox:-0.10,oy:0.08},{k:'bench',ox:0.14,oy:-0.08},{k:'lamp',ox:0.00,oy:-0.20}],
+    town_square: [{k:'fountain',ox:0,oy:0}],
+    office:      [{k:'computer',ox:-0.22,oy:-0.14},{k:'computer',ox:0.10,oy:-0.14},{k:'computer',ox:-0.06,oy:0.14}],
+    house_alice: [{k:'easel',ox:0,oy:0}],
+    house_bob:   [{k:'computer',ox:-0.12,oy:-0.10},{k:'computer',ox:0.12,oy:0.10}],
+    house_carol: [{k:'blackboard',ox:0,oy:-0.16},{k:'bench',ox:0,oy:0.14}],
+    house_diana: [{k:'stove',ox:-0.12,oy:0},{k:'table_cafe',ox:0.16,oy:0}],
+    house_eve:   [{k:'bookshelf',ox:-0.16,oy:0},{k:'lamp',ox:0.16,oy:0}],
+    apartment:   [{k:'bookshelf',ox:-0.16,oy:-0.08},{k:'computer',ox:0.14,oy:-0.08},{k:'bench',ox:-0.08,oy:0.18},{k:'lamp',ox:0.18,oy:0.18}],
+  };
+
+  const layout = LAYOUTS[locKey] || [];
+  const sc = Math.max(1, Math.round(tw / 32));   // 2× at TILE_W=64
+  const pw = 40 * sc, ph = 40 * sc;             // 2.5× larger sprite props
+  ctx.imageSmoothingEnabled = false;
+
+  for (const {k, ox, oy} of layout) {
+    const img = tileImages[k];
+    const px = Math.round(rcx + ox * tw - pw / 2);
+    const py = Math.round(rcy + oy * th - ph * 0.7);
+    if (img?.complete && img.naturalWidth > 0) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, px, py, pw, ph);
+    } else {
+      _drawPropFallback(k, px, py, pw, ph);
+    }
+  }
+
+  ctx.restore();
+}
+
+function _drawPropFallback(key, x, y, w, h) {
+  ctx.save();
+  switch(key) {
+    case 'bench':
+      ctx.fillStyle = '#8B5E3C';
+      ctx.fillRect(x, Math.round(y+h*0.28), w, Math.round(h*0.14));
+      ctx.fillRect(x+Math.round(w*0.1), Math.round(y+h*0.42), Math.round(w*0.14), Math.round(h*0.42));
+      ctx.fillRect(x+Math.round(w*0.76), Math.round(y+h*0.42), Math.round(w*0.14), Math.round(h*0.42));
+      break;
+    case 'table_cafe':
+      ctx.fillStyle = '#C8A060';
+      ctx.beginPath(); ctx.ellipse(x+w/2, y+h*0.34, w*0.42, h*0.17, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#A08040';
+      ctx.fillRect(x+Math.round(w*0.44), Math.round(y+h*0.36), Math.round(w*0.12), Math.round(h*0.52));
+      break;
+    case 'fountain':
+      ctx.fillStyle = '#5599BB';
+      ctx.beginPath(); ctx.arc(x+w/2, y+h/2, w*0.42, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#88CCEE';
+      ctx.beginPath(); ctx.arc(x+w/2, y+h*0.38, w*0.18, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#AADDFF'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 4; i++) {
+        const a = i*Math.PI/2;
+        ctx.beginPath();
+        ctx.moveTo(x+w/2+Math.cos(a)*w*0.18, y+h*0.38+Math.sin(a)*w*0.18);
+        ctx.lineTo(x+w/2+Math.cos(a)*w*0.36, y+h*0.38+Math.sin(a)*w*0.18+h*0.09);
+        ctx.stroke();
+      }
+      break;
+    case 'bookshelf':
+      ['#CC4444','#4488CC','#44AA44','#CCAA22','#884488'].forEach((c,i) => {
+        ctx.fillStyle = c;
+        ctx.fillRect(Math.round(x+i*w/5), y, Math.round(w/5)-1, Math.round(h*0.82));
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        ctx.fillRect(Math.round(x+i*w/5), y, 1, Math.round(h*0.82));
+      });
+      ctx.fillStyle = '#7A5030';
+      ctx.fillRect(x, Math.round(y+h*0.82), w, Math.round(h*0.18));
+      break;
+    case 'computer':
+      ctx.fillStyle = '#3A6688';
+      ctx.fillRect(Math.round(x+w*0.05), y, Math.round(w*0.9), Math.round(h*0.64));
+      ctx.fillStyle = '#7ABDE0';
+      ctx.fillRect(Math.round(x+w*0.12), Math.round(y+h*0.07), Math.round(w*0.76), Math.round(h*0.52));
+      ctx.fillStyle = '#555';
+      ctx.fillRect(Math.round(x+w*0.38), Math.round(y+h*0.65), Math.round(w*0.24), Math.round(h*0.11));
+      ctx.fillRect(Math.round(x+w*0.22), Math.round(y+h*0.76), Math.round(w*0.56), Math.round(h*0.1));
+      break;
+    case 'easel':
+      ctx.strokeStyle = '#AA8855'; ctx.lineWidth = Math.max(1, Math.round(w*0.1));
+      ctx.beginPath(); ctx.moveTo(x+w/2, y); ctx.lineTo(Math.round(x+w*0.1), y+h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x+w/2, y); ctx.lineTo(Math.round(x+w*0.9), y+h); ctx.stroke();
+      ctx.fillStyle = '#EEDD88';
+      ctx.fillRect(Math.round(x+w*0.18), Math.round(y+h*0.07), Math.round(w*0.64), Math.round(h*0.52));
+      break;
+    case 'stove':
+      ctx.fillStyle = '#888';
+      ctx.fillRect(x, y, w, Math.round(h*0.9));
+      ctx.fillStyle = '#333';
+      ctx.beginPath(); ctx.arc(x+w*0.28, y+h*0.28, w*0.16, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x+w*0.72, y+h*0.28, w*0.16, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#777';
+      ctx.fillRect(Math.round(x+w*0.15), Math.round(y+h*0.55), Math.round(w*0.7), Math.round(h*0.28));
+      break;
+    case 'lamp':
+      ctx.fillStyle = '#DDB844';
+      ctx.beginPath();
+      ctx.moveTo(Math.round(x+w*0.15), Math.round(y+h*0.22));
+      ctx.lineTo(Math.round(x+w*0.85), Math.round(y+h*0.22));
+      ctx.lineTo(Math.round(x+w*0.7),  Math.round(y+h*0.50));
+      ctx.lineTo(Math.round(x+w*0.3),  Math.round(y+h*0.50));
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#AA8833'; ctx.lineWidth = Math.max(1, Math.round(w*0.12));
+      ctx.beginPath(); ctx.moveTo(x+w/2, Math.round(y+h*0.50)); ctx.lineTo(x+w/2, y+h); ctx.stroke();
+      ctx.fillStyle = '#CCAA44';
+      ctx.beginPath(); ctx.arc(x+w/2, Math.round(y+h*0.22), w*0.14, 0, Math.PI*2); ctx.fill();
+      break;
+    case 'blackboard':
+      ctx.fillStyle = '#1A4428';
+      ctx.fillRect(x, y, w, Math.round(h*0.78));
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(Math.round(x+w*0.1), Math.round(y+h*0.26)); ctx.lineTo(Math.round(x+w*0.65), Math.round(y+h*0.26)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(Math.round(x+w*0.1), Math.round(y+h*0.48)); ctx.lineTo(Math.round(x+w*0.50), Math.round(y+h*0.48)); ctx.stroke();
+      ctx.fillStyle = '#8B7355';
+      ctx.fillRect(x, Math.round(y+h*0.78), w, Math.round(h*0.22));
+      break;
+    default:
+      ctx.fillStyle = 'rgba(160,120,60,0.55)';
+      ctx.fillRect(x+Math.round(w*0.2), y+Math.round(h*0.2), Math.round(w*0.6), Math.round(h*0.6));
+  }
+  ctx.restore();
+}
+
+// ── Isometric furniture drawn directly on the roof diamond ──────
+// World-space convention: tile center = (0,0), tile spans [-0.5, 0.5].
+// Transform: screen_x = sx + (wx+wy)*(tw/2),  screen_y = (sy+th/2) + (wy-wx)*(th/2)
+function _drawIsoFurniture(locKey, sx, sy, tw, th) {
+  function ws(wx, wy) {
+    return [sx + (wx + wy) * (tw * 0.5),
+            (sy + th * 0.5) + (wy - wx) * (th * 0.5)];
+  }
+  // Flat isometric parallelogram (rectangle lying on the ground plane).
+  // cwx/cwy = world-space center, hw/hd = half-extents along each iso axis.
+  function isoFlat(cwx, cwy, hw, hd, fill, stroke) {
+    const [ax,ay] = ws(cwx-hw, cwy-hd);
+    const [bx,by] = ws(cwx+hw, cwy-hd);
+    const [cx_,cy_] = ws(cwx+hw, cwy+hd);
+    const [dx,dy] = ws(cwx-hw, cwy+hd);
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.lineTo(cx_,cy_); ctx.lineTo(dx,dy);
+    ctx.closePath(); ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 0.8; ctx.stroke(); }
+  }
+
+  const s = Math.max(0.5, tw / 64) * 2.5; // pixel-size scale (2.5× at TILE_W=64)
+  // Scaled isoFlat: keeps position, enlarges half-extents 2.5×
+  const isoFlatS = (cwx, cwy, hw, hd, fill, stroke) => isoFlat(cwx, cwy, hw * 2.5, hd * 2.5, fill, stroke);
+
+  // Each furniture group registers a world-space ground anchor (wx,wy) and a
+  // draw fn. The caller converts the anchor to an iso depth so every piece
+  // sorts independently against characters. floor=true marks flat decals
+  // (carpets / floor patterns) that should stay under everything.
+  const pieces = [];
+  const piece = (wx, wy, fn, floor) => pieces.push({wx, wy, fn, floor: !!floor});
+
+  switch (locKey) {
+
+    // ── CAFÉ ─────────────────────────────────────────────────────
+    case 'cafe': {
+      // Floor tiles pattern (checkerboard) — flat decal
+      piece(0, 0, () => {
+        for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) {
+          if ((gx+gy)%2===0) isoFlat(gx*0.5, gy*0.5, 0.24, 0.24, 'rgba(200,155,80,0.18)');
+        }
+      }, true);
+      // Bar counter (+ coffee machine, cups, flower vase) along back-left wall
+      piece(-1.0, -0.55, () => {
+        isoFlatS(-1.0, -0.55, 0.38, 0.10, '#8B4513', 'rgba(0,0,0,0.22)');
+        isoFlatS(-1.0, -0.55, 0.34, 0.07, '#C8A060'); // counter top
+        const [cmx,cmy] = ws(-1.0, -0.62);
+        ctx.fillStyle = '#555'; ctx.fillRect(cmx-4*s,cmy-8*s,8*s,8*s);
+        ctx.fillStyle = '#888'; ctx.fillRect(cmx-3*s,cmy-7*s,6*s,5*s);
+        ctx.fillStyle = '#CC4422'; ctx.beginPath(); ctx.arc(cmx+2*s,cmy-8*s,1.5*s,0,Math.PI*2); ctx.fill();
+        for (let ci=0;ci<3;ci++) {
+          const [cx2,cy2]=ws(-1.2+ci*0.22,-0.50);
+          ctx.fillStyle='#F8F8F8'; ctx.beginPath(); ctx.ellipse(cx2,cy2,2.5*s,1.5*s,0,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle='#5C2F0A'; ctx.beginPath(); ctx.ellipse(cx2,cy2,1.6*s,1.0*s,0,0,Math.PI*2); ctx.fill();
+        }
+        isoFlatS(-0.70,-0.55,0.04,0.028,'#BB7733','rgba(0,0,0,0.2)');
+        const [vx,vy]=ws(-0.70,-0.58);
+        ctx.fillStyle='#55BB44'; ctx.beginPath(); ctx.ellipse(vx-2*s,vy-5*s,3*s,2*s,-0.5,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(vx+2*s,vy-6*s,2.5*s,2*s,0.5,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#FF6688'; ctx.beginPath(); ctx.arc(vx-2*s,vy-5*s,1.6*s,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(vx+2*s,vy-6*s,1.4*s,0,Math.PI*2); ctx.fill();
+      });
+      // Table 1 — back-right area
+      piece(0.60, -0.60, () => {
+        isoFlatS(0.60, -0.60, 0.18, 0.12, '#C89050', 'rgba(0,0,0,0.2)');
+        isoFlatS(0.60, -0.60, 0.14, 0.08, '#E8C880');
+        isoFlatS(0.38, -0.60, 0.08, 0.06, '#AA6633');
+        isoFlatS(0.82, -0.60, 0.08, 0.06, '#AA6633');
+        isoFlatS(0.60, -0.82, 0.06, 0.08, '#AA6633');
+        isoFlatS(0.60, -0.38, 0.06, 0.08, '#AA6633');
+      });
+      // Table 2 — center
+      piece(0.00, 0.10, () => {
+        isoFlatS(0.00, 0.10, 0.18, 0.12, '#C89050', 'rgba(0,0,0,0.2)');
+        isoFlatS(0.00, 0.10, 0.14, 0.08, '#E8C880');
+        isoFlatS(-0.22, 0.10, 0.08, 0.06, '#AA6633');
+        isoFlatS(0.22, 0.10, 0.08, 0.06, '#AA6633');
+        isoFlatS(0.00, -0.12, 0.06, 0.08, '#AA6633');
+        isoFlatS(0.00, 0.32, 0.06, 0.08, '#AA6633');
+      });
+      // Table 3 — front-left
+      piece(-0.65, 0.70, () => {
+        isoFlatS(-0.65, 0.70, 0.18, 0.12, '#C89050', 'rgba(0,0,0,0.2)');
+        isoFlatS(-0.65, 0.70, 0.14, 0.08, '#E8C880');
+        isoFlatS(-0.88, 0.70, 0.08, 0.06, '#AA6633');
+        isoFlatS(-0.43, 0.70, 0.08, 0.06, '#AA6633');
+        isoFlatS(-0.65, 0.48, 0.06, 0.08, '#AA6633');
+        isoFlatS(-0.65, 0.92, 0.06, 0.08, '#AA6633');
+      });
+      // Table 4 — front-right
+      piece(0.70, 0.60, () => {
+        isoFlatS(0.70, 0.60, 0.18, 0.12, '#C89050', 'rgba(0,0,0,0.2)');
+        isoFlatS(0.70, 0.60, 0.14, 0.08, '#E8C880');
+        isoFlatS(0.48, 0.60, 0.08, 0.06, '#AA6633');
+        isoFlatS(0.92, 0.60, 0.08, 0.06, '#AA6633');
+      });
+      // Plant in right-back corner
+      piece(1.2, -1.1, () => {
+        const [px1,py1]=ws(1.2,-1.1);
+        ctx.fillStyle='#7A4E2A'; ctx.fillRect(px1-4*s,py1-2*s,8*s,6*s);
+        ctx.fillStyle='#2E8B22'; ctx.beginPath(); ctx.arc(px1,py1-8*s,7*s,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#44AA33'; ctx.beginPath(); ctx.arc(px1-4*s,py1-13*s,5*s,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px1+4*s,py1-12*s,4.5*s,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#66CC44'; ctx.beginPath(); ctx.arc(px1,py1-12*s,4*s,0,Math.PI*2); ctx.fill();
+      });
+      break;
+    }
+
+    // ── LIBRARY ──────────────────────────────────────────────────
+    case 'library': {
+      const bkCols=['#CC4444','#4488CC','#44AA44','#CCAA22','#884488','#DD8833','#3388BB'];
+      // Carpet runner — center (flat decal)
+      piece(0, 0.10, () => {
+        const [crx,cry]=ws(0,0.10);
+        ctx.fillStyle='#6B1A1A'; ctx.beginPath(); ctx.ellipse(crx,cry,28*s,16*s,0,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#9B3333'; ctx.lineWidth=1.8*s; ctx.beginPath(); ctx.ellipse(crx,cry,24*s,13*s,0,0,Math.PI*2); ctx.stroke();
+        ctx.strokeStyle='#CC6666'; ctx.lineWidth=0.8*s; ctx.beginPath(); ctx.ellipse(crx,cry,18*s,10*s,0,0,Math.PI*2); ctx.stroke();
+      }, true);
+      // Bookshelf row back-left (+ colored spines)
+      piece(-1.05, -0.35, () => {
+        isoFlatS(-1.05,-0.35,0.10,0.30,'#6B4423','rgba(0,0,0,0.2)');
+        for(let bi=0;bi<7;bi++){
+          const bw=0.034, bd=0.036;
+          isoFlatS(-1.05,-0.55+bi*bd*1.7,bw,bd,bkCols[bi]);
+        }
+      });
+      // Bookshelf row back-right
+      piece(-0.35, -1.05, () => {
+        isoFlatS(-0.35,-1.05,0.30,0.10,'#6B4423','rgba(0,0,0,0.2)');
+        for(let bi=0;bi<7;bi++){
+          const bw=0.036, bd=0.034;
+          isoFlatS(-0.55+bi*bw*1.7,-1.05,bw,bd,bkCols[bi%7]);
+        }
+      });
+      // Second bookshelf back-left lower
+      piece(-1.05, 0.35, () => {
+        isoFlatS(-1.05,0.35,0.10,0.30,'#6B4423','rgba(0,0,0,0.2)');
+        for(let bi=0;bi<7;bi++){
+          isoFlatS(-1.05,0.15+bi*0.062,0.034,0.036,bkCols[(bi+3)%7]);
+        }
+      });
+      // Reading table left (+ books)
+      piece(-0.55, 0.00, () => {
+        isoFlatS(-0.55,0.00,0.22,0.14,'#C89050','rgba(0,0,0,0.2)');
+        isoFlatS(-0.55,0.00,0.18,0.10,'#E0B878');
+        isoFlatS(-0.56,-0.04,0.10,0.06,'#4488CC','rgba(0,0,0,0.15)');
+        isoFlatS(-0.54,0.06,0.08,0.05,'#CC4444','rgba(0,0,0,0.10)');
+      });
+      // Reading table right (+ book)
+      piece(0.55, -0.20, () => {
+        isoFlatS(0.55,-0.20,0.22,0.14,'#C89050','rgba(0,0,0,0.2)');
+        isoFlatS(0.55,-0.20,0.18,0.10,'#E0B878');
+        isoFlatS(0.54,-0.22,0.08,0.06,'#44AA44','rgba(0,0,0,0.12)');
+      });
+      // Desk lamps
+      for(const [lw,lr] of [[-0.55,-0.10],[0.60,-0.30]]) {
+        piece(lw, lr, () => {
+          const [lx,ly]=ws(lw,lr);
+          ctx.strokeStyle='#AAAAAA'; ctx.lineWidth=1.5*s;
+          ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx,ly-12*s); ctx.stroke();
+          ctx.fillStyle='#FFDD44'; ctx.beginPath(); ctx.arc(lx,ly-14*s,4.5*s,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle='rgba(255,220,80,0.18)'; ctx.beginPath(); ctx.arc(lx,ly-14*s,9*s,0,Math.PI*2); ctx.fill();
+        });
+      }
+      // Armchair front area
+      piece(0.30, 0.80, () => {
+        isoFlatS(0.30,0.80,0.16,0.18,'#8B4513','rgba(0,0,0,0.2)');
+        isoFlatS(0.30,0.80,0.12,0.13,'#C8A060');
+        isoFlatS(0.30,0.68,0.12,0.04,'#B89050'); // backrest hint
+      });
+      // Small side table with globe
+      piece(-0.30, 0.75, () => {
+        isoFlatS(-0.30,0.75,0.10,0.10,'#8B6914','rgba(0,0,0,0.18)');
+        const [gx2,gy2]=ws(-0.30,0.75);
+        ctx.strokeStyle='#4488AA'; ctx.lineWidth=1.2*s;
+        ctx.beginPath(); ctx.arc(gx2,gy2-6*s,4*s,0,Math.PI*2); ctx.stroke();
+        ctx.strokeStyle='rgba(68,136,170,0.5)'; ctx.lineWidth=0.7*s;
+        ctx.beginPath(); ctx.arc(gx2,gy2-6*s,4*s,-Math.PI*0.5,Math.PI*0.5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(gx2,gy2-10*s); ctx.lineTo(gx2,gy2-2*s); ctx.stroke();
+      });
+      break;
+    }
+
+    // ── OFFICE ───────────────────────────────────────────────────
+    case 'office': {
+      // Floor grid subtle lines — flat decal
+      piece(0, 0, () => {
+        ctx.strokeStyle='rgba(160,180,190,0.25)'; ctx.lineWidth=0.5;
+        for(let gx=-1;gx<=1;gx++) { const [x1,y1]=ws(gx*0.7,-1.4),[x2,y2]=ws(gx*0.7,1.4); ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
+        for(let gy=-1;gy<=1;gy++) { const [x1,y1]=ws(-1.4,gy*0.7),[x2,y2]=ws(1.4,gy*0.7); ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
+      }, true);
+      // Desk cluster 1 — back-left
+      piece(-0.72, -0.45, () => {
+        isoFlatS(-0.72,-0.45,0.22,0.15,'#DEB887','rgba(0,0,0,0.15)');
+        isoFlatS(-0.72,-0.45,0.06,0.04,'#4488CC','rgba(0,0,0,0.12)'); // monitor
+        const [m1x,m1y]=ws(-0.72,-0.50);
+        ctx.fillStyle='#3A6688'; ctx.fillRect(m1x-5*s,m1y-10*s,10*s,8*s);
+        ctx.fillStyle='#7ABDE0'; ctx.fillRect(m1x-4*s,m1y-9*s,8*s,6*s);
+      });
+      // Desk cluster 2 — back-right
+      piece(-0.45, -0.72, () => {
+        isoFlatS(-0.45,-0.72,0.15,0.22,'#DEB887','rgba(0,0,0,0.15)');
+        isoFlatS(-0.48,-0.72,0.04,0.06,'#4488CC','rgba(0,0,0,0.12)');
+        const [m2x,m2y]=ws(-0.52,-0.72);
+        ctx.fillStyle='#3A6688'; ctx.fillRect(m2x-5*s,m2y-10*s,10*s,8*s);
+        ctx.fillStyle='#7ABDE0'; ctx.fillRect(m2x-4*s,m2y-9*s,8*s,6*s);
+      });
+      // Desk cluster 3 — center
+      piece(0.10, 0.10, () => {
+        isoFlatS(0.10,0.10,0.22,0.15,'#DEB887','rgba(0,0,0,0.15)');
+        const [m3x,m3y]=ws(0.10,0.05);
+        ctx.fillStyle='#3A6688'; ctx.fillRect(m3x-5*s,m3y-10*s,10*s,8*s);
+        ctx.fillStyle='#7ABDE0'; ctx.fillRect(m3x-4*s,m3y-9*s,8*s,6*s);
+      });
+      // Desk cluster 4 — right side
+      piece(0.72, 0.20, () => {
+        isoFlatS(0.72,0.20,0.22,0.15,'#DEB887','rgba(0,0,0,0.15)');
+        const [m4x,m4y]=ws(0.72,0.15);
+        ctx.fillStyle='#3A6688'; ctx.fillRect(m4x-5*s,m4y-10*s,10*s,8*s);
+        ctx.fillStyle='#7ABDE0'; ctx.fillRect(m4x-4*s,m4y-9*s,8*s,6*s);
+      });
+      // Whiteboard back wall area
+      piece(0.00, -1.00, () => {
+        isoFlatS(0.00,-1.00,0.35,0.07,'#F0F0F0','rgba(0,0,0,0.18)');
+        const [wbx,wby]=ws(0.00,-1.06);
+        ctx.strokeStyle='#3388CC'; ctx.lineWidth=1.0*s;
+        ctx.beginPath(); ctx.moveTo(wbx-10*s,wby-3*s); ctx.lineTo(wbx-2*s,wby-3*s); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(wbx-8*s,wby-1*s); ctx.lineTo(wbx+2*s,wby-1*s); ctx.stroke();
+        ctx.strokeStyle='#CC3322'; ctx.lineWidth=0.7*s;
+        ctx.beginPath(); ctx.moveTo(wbx+4*s,wby-4*s); ctx.lineTo(wbx+10*s,wby-1*s); ctx.stroke();
+      });
+      // Filing cabinets — front area
+      piece(0.68, 0.82, () => {
+        isoFlatS(0.80,0.80,0.12,0.18,'#BBBBBB','rgba(0,0,0,0.2)');
+        isoFlatS(0.55,0.85,0.12,0.18,'#BBBBBB','rgba(0,0,0,0.2)');
+        const [fc1x,fc1y]=ws(0.80,0.80);
+        for(let i=-1;i<=1;i++) { ctx.strokeStyle='#888'; ctx.lineWidth=0.8; ctx.beginPath(); ctx.moveTo(fc1x-10*s,fc1y+i*4*s); ctx.lineTo(fc1x+10*s,fc1y+i*4*s); ctx.stroke(); }
+      });
+      // Potted plant corner
+      piece(-1.1, -1.1, () => {
+        const [ppx,ppy]=ws(-1.1,-1.1);
+        ctx.fillStyle='#7A4E2A'; ctx.fillRect(ppx-4*s,ppy,8*s,6*s);
+        ctx.fillStyle='#1E7B14'; ctx.beginPath(); ctx.arc(ppx,ppy-6*s,6.5*s,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#44AA33'; ctx.beginPath(); ctx.arc(ppx-4*s,ppy-11*s,4.5*s,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(ppx+4*s,ppy-10*s,4*s,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#66CC44'; ctx.beginPath(); ctx.arc(ppx,ppy-11*s,3.5*s,0,Math.PI*2); ctx.fill();
+      });
+      // Coffee station front-right
+      piece(0.90, -0.30, () => {
+        isoFlatS(0.90,-0.30,0.10,0.14,'#5A4030','rgba(0,0,0,0.2)');
+        const [cfx,cfy]=ws(0.90,-0.36);
+        ctx.fillStyle='#333'; ctx.fillRect(cfx-5*s,cfy-8*s,10*s,8*s);
+        ctx.fillStyle='#CC4422'; ctx.beginPath(); ctx.arc(cfx+3*s,cfy-9*s,2*s,0,Math.PI*2); ctx.fill();
+      });
+      break;
+    }
+
+    // ── TOWN SQUARE / PLAZA ──────────────────────────────────────
+    case 'town_square': {
+      // Fountain — center
+      piece(0, 0, () => {
+        isoFlatS(0,0,0.30,0.20,'#5599BB','rgba(0,0,0,0.18)');
+        isoFlatS(0,0,0.22,0.14,'#88CCEE');
+        const [fntx,fnty]=ws(0,0);
+        ctx.fillStyle='rgba(160,220,255,0.55)';
+        ctx.beginPath(); ctx.ellipse(fntx,fnty,14*s,8*s,0,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='rgba(140,200,255,0.8)'; ctx.lineWidth=1.2*s;
+        for(let i=0;i<4;i++){const a=i*Math.PI/2; ctx.beginPath(); ctx.moveTo(fntx+Math.cos(a)*6*s,fnty+Math.sin(a)*3.5*s); ctx.lineTo(fntx+Math.cos(a)*3*s,fnty+Math.sin(a)*2*s-8*s); ctx.stroke();}
+      });
+      // Benches × 4 around fountain — each its own piece
+      for(const [bw,br,bangle] of [[-0.70,0.10,0],[ 0.55,-0.25,0],[-0.10,-0.70,1],[0.05,0.75,1]]) {
+        piece(bw, br, () => {
+          if(bangle===0){ isoFlatS(bw,br,0.18,0.055,'#8B5E3C','rgba(0,0,0,0.2)'); isoFlatS(bw,br,0.14,0.030,'#AA7755'); }
+          else { isoFlatS(bw,br,0.055,0.18,'#8B5E3C','rgba(0,0,0,0.2)'); isoFlatS(bw,br,0.030,0.14,'#AA7755'); }
+        });
+      }
+      // Four lamp posts at corners
+      for(const [lw,lr] of [[-1.10,-0.55],[ 0.90,-0.95],[-0.95,0.90],[0.75,0.75]]) {
+        piece(lw, lr, () => {
+          const [llx,lly]=ws(lw,lr);
+          ctx.strokeStyle='#777'; ctx.lineWidth=2*s;
+          ctx.beginPath(); ctx.moveTo(llx,lly); ctx.lineTo(llx,lly-16*s); ctx.stroke();
+          ctx.strokeStyle='#999'; ctx.lineWidth=1.2*s;
+          ctx.beginPath(); ctx.moveTo(llx,lly-15*s); ctx.lineTo(llx+4*s,lly-15*s); ctx.stroke();
+          ctx.fillStyle='#FFEE55'; ctx.beginPath(); ctx.arc(llx+4*s,lly-16*s,3.5*s,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle='rgba(255,240,80,0.18)'; ctx.beginPath(); ctx.arc(llx+4*s,lly-16*s,9*s,0,Math.PI*2); ctx.fill();
+        });
+      }
+      // Flower beds at corners
+      for(const [fw,fr] of [[-1.1,-1.0],[1.0,-1.1],[-1.1,1.0],[0.9,0.9]]) {
+        piece(fw, fr, () => {
+          isoFlatS(fw,fr,0.14,0.10,'#2E7D32','rgba(0,0,0,0.15)');
+          isoFlatS(fw,fr,0.11,0.07,'#5A3E28');
+          const [fbx2,fby2]=ws(fw,fr);
+          const fcs=['#FF4466','#FFBB22','#FF88FF','#FF6644'];
+          for(let fi2=0;fi2<4;fi2++){const fa2=fi2*Math.PI/2+Math.PI/4; ctx.fillStyle=fcs[fi2]; ctx.beginPath(); ctx.arc(fbx2+Math.cos(fa2)*5*s,fby2+Math.sin(fa2)*3*s,2*s,0,Math.PI*2); ctx.fill();}
+        });
+      }
+      break;
+    }
+
+    // ── PARK ─────────────────────────────────────────────────────
+    case 'park': {
+      // Benches × 2 — each its own piece
+      piece(-0.80, 0.30, () => {
+        isoFlatS(-0.80, 0.30, 0.18, 0.055, '#8B5E3C', 'rgba(0,0,0,0.2)');
+        isoFlatS(-0.80, 0.295, 0.14, 0.030, '#AA7755');
+      });
+      piece(0.30, 0.85, () => {
+        isoFlatS( 0.30, 0.85, 0.055, 0.18, '#8B5E3C', 'rgba(0,0,0,0.2)');
+        isoFlatS( 0.295,0.85, 0.030, 0.14, '#AA7755');
+      });
+      // Flower beds
+      for(const [fw,fr,fc1,fc2] of [
+        [ 0.65,-0.65,'#FF4466','#FFEE22'],
+        [-0.65,-0.65,'#FF88FF','#FFFFFF'],
+        [ 0.65, 0.65,'#FF8844','#FFBB22'],
+      ]) {
+        piece(fw, fr, () => {
+          isoFlatS(fw,fr,0.18,0.14,'#3A8B2A','rgba(0,0,0,0.15)');
+          isoFlatS(fw,fr,0.14,0.10,'#5A3E28');
+          const [fbx3,fby3]=ws(fw,fr);
+          const fcs2=[fc1,'#228B22',fc2,'#228B22',fc1];
+          for(let fi3=0;fi3<5;fi3++){const fa3=fi3*Math.PI*2/5; ctx.fillStyle='#228B22'; ctx.beginPath(); ctx.arc(fbx3+Math.cos(fa3)*8*s,fby3+Math.sin(fa3)*4.5*s,2.5*s,0,Math.PI*2); ctx.fill(); ctx.fillStyle=fcs2[fi3]; ctx.beginPath(); ctx.arc(fbx3+Math.cos(fa3)*8*s,fby3+Math.sin(fa3)*4.5*s,1.8*s,0,Math.PI*2); ctx.fill();}
+          ctx.fillStyle='#FFEE22'; ctx.beginPath(); ctx.arc(fbx3,fby3,2.5*s,0,Math.PI*2); ctx.fill();
+        });
+      }
+      // Lamp post
+      piece(-0.30, -0.80, () => {
+        const [lmpx,lmpy]=ws(-0.30,-0.80);
+        ctx.strokeStyle='#777'; ctx.lineWidth=2*s;
+        ctx.beginPath(); ctx.moveTo(lmpx,lmpy); ctx.lineTo(lmpx,lmpy-18*s); ctx.stroke();
+        ctx.strokeStyle='#999'; ctx.lineWidth=1.2*s;
+        ctx.beginPath(); ctx.moveTo(lmpx,lmpy-17*s); ctx.lineTo(lmpx+4*s,lmpy-17*s); ctx.stroke();
+        ctx.fillStyle='#FFEE55'; ctx.beginPath(); ctx.arc(lmpx+4*s,lmpy-18*s,4*s,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgba(255,240,80,0.20)'; ctx.beginPath(); ctx.arc(lmpx+4*s,lmpy-18*s,10*s,0,Math.PI*2); ctx.fill();
+      });
+      // Stone path circle — flat decal
+      piece(0, 0.10, () => {
+        const [spx,spy]=ws(0,0.10);
+        ctx.strokeStyle='rgba(180,160,120,0.60)'; ctx.lineWidth=2.5*s;
+        ctx.beginPath(); ctx.ellipse(spx,spy,20*s,12*s,0,0,Math.PI*2); ctx.stroke();
+      }, true);
+      break;
+    }
+
+    // ── CHARACTER HOUSES ─────────────────────────────────────────
+    default: {
+      if (!locKey.startsWith('house_') && locKey !== 'apartment') break;
+      const bedCols = {
+        house_alice: '#FF88CC', house_bob: '#5599FF',
+        house_carol: '#FF8844', house_diana:'#44CC88', house_eve:'#AA66FF',
+        apartment: '#8EA0B8',
+      };
+      const bc = bedCols[locKey] || '#AABBFF';
+      // Carpet + rug ring — flat decal
+      piece(0, 0.15, () => {
+        const [cpx2,cpy2]=ws(0,0.15);
+        ctx.globalAlpha=0.40; ctx.fillStyle=bc;
+        ctx.beginPath(); ctx.ellipse(cpx2,cpy2,22*s,13*s,0,0,Math.PI*2); ctx.fill();
+        ctx.globalAlpha=1.0;
+        ctx.strokeStyle=darken(bc,0.65); ctx.lineWidth=1.0*s;
+        ctx.beginPath(); ctx.ellipse(cpx2,cpy2,17*s,10*s,0,0,Math.PI*2); ctx.stroke();
+      }, true);
+      // Bed (frame + mattress + pillow + quilt + headboard) — left side
+      piece(-0.55, 0.05, () => {
+        isoFlatS(-0.55, 0.05, 0.20, 0.30, '#7A5830', 'rgba(0,0,0,0.18)');
+        isoFlatS(-0.55, 0.12, 0.17, 0.22, bc);           // mattress
+        isoFlatS(-0.55,-0.18, 0.14, 0.08, '#FFFFFF', 'rgba(0,0,0,0.10)'); // pillow
+        ctx.globalAlpha=0.60;
+        isoFlatS(-0.55, 0.22, 0.15, 0.06, '#FFFFFF');    // quilt stripe
+        ctx.globalAlpha=1.0;
+        isoFlatS(-0.55,-0.35, 0.20, 0.04, darken(bc,0.70)); // headboard
+      });
+      // Night stand + lamp
+      piece(-0.80, 0.32, () => {
+        isoFlatS(-0.80, 0.32, 0.10, 0.10, '#8B6930', 'rgba(0,0,0,0.15)');
+        isoFlatS(-0.80, 0.32, 0.07, 0.07, '#A8894A');
+        const [nslx,nsly]=ws(-0.80,0.30);
+        ctx.strokeStyle='#AAAAAA'; ctx.lineWidth=1.2*s;
+        ctx.beginPath(); ctx.moveTo(nslx,nsly); ctx.lineTo(nslx,nsly-9*s); ctx.stroke();
+        ctx.fillStyle='#FFEE88'; ctx.beginPath(); ctx.arc(nslx,nsly-11*s,3.5*s,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgba(255,235,100,0.20)'; ctx.beginPath(); ctx.arc(nslx,nsly-11*s,7*s,0,Math.PI*2); ctx.fill();
+      });
+      // Wardrobe — back-right area
+      piece(0.70, -0.35, () => {
+        isoFlatS(0.70,-0.35,0.15,0.35,'#8B6914','rgba(0,0,0,0.22)');
+        isoFlatS(0.70,-0.35,0.12,0.31,'#C8A860');
+        const [wdx,wdy]=ws(0.70,-0.35);
+        ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=0.8;
+        ctx.beginPath(); ctx.moveTo(wdx,wdy-8*s); ctx.lineTo(wdx,wdy+8*s); ctx.stroke(); // center split
+        ctx.fillStyle='#DDBB66';
+        ctx.fillRect(wdx-2*s,wdy-3*s,4*s,2*s); ctx.fillRect(wdx-2*s,wdy+1*s,4*s,2*s); // handles
+      });
+      // Writing desk (+ unique item) — right-front area
+      piece(0.50, 0.65, () => {
+        isoFlatS(0.50, 0.65, 0.18, 0.14, '#DEB887', 'rgba(0,0,0,0.15)');
+        isoFlatS(0.50, 0.65, 0.14, 0.10, '#E8C880');
+        const deskItems={house_alice:['#FFDD44',0],house_bob:['#4488CC',1],house_carol:['#FF8844',2],house_diana:['#44BB88',3],house_eve:['#AA66FF',4],apartment:['#8EA0B8',1]};
+        const [dc,dtype]=deskItems[locKey]||['#AAAAAA',0];
+        isoFlatS(0.52,0.58,0.06,0.04,dc,'rgba(0,0,0,0.12)');
+        if(dtype===1){// computer screen
+          const [dsx,dsy]=ws(0.50,0.58);
+          ctx.fillStyle='#3A6688'; ctx.fillRect(dsx-5*s,dsy-9*s,10*s,7*s);
+          ctx.fillStyle='#7ABDE0'; ctx.fillRect(dsx-4*s,dsy-8*s,8*s,5*s);
+        }
+      });
+      // Small bookshelf — back wall
+      piece(-0.05, -0.85, () => {
+        isoFlatS(-0.05,-0.85,0.35,0.08,'#6B4423','rgba(0,0,0,0.2)');
+        const hBkCols=['#CC4444','#4488CC','#44AA44','#CCAA22','#884488','#DD8833'];
+        for(let bi=0;bi<6;bi++){ isoFlatS(-0.28+bi*0.11,-0.87,0.04,0.05,hBkCols[bi%6]); }
+      });
+      break;
+    }
+  }
+
+  return pieces;
+}
+
+// ── Facade window / door helpers ────────────────────────────────
+
+function _facadeWindow(wx, wy, ww, wh, base) {
+  ctx.fillStyle = darken(base, 0.32);
+  ctx.fillRect(wx-1, wy-1, ww+2, wh+2);
+  ctx.fillStyle = '#88CCEE';
+  ctx.fillRect(wx, wy, ww, wh);
+  ctx.fillStyle = 'rgba(160,224,255,0.55)';
+  ctx.fillRect(wx, wy, ww, Math.round(wh*0.48));
+  ctx.fillStyle = 'rgba(255,255,255,0.70)';
+  ctx.fillRect(wx+Math.round(ww*0.5)-1, wy, 1, wh);
+  ctx.fillRect(wx, wy+Math.round(wh*0.5)-1, ww, 1);
+  ctx.fillStyle = 'rgba(255,255,255,0.42)';
+  ctx.fillRect(wx+1, wy+1, Math.round(ww*0.32), Math.round(wh*0.28));
+}
+
+function _facadeDoor(dx, dy, dw, dh, base) {
+  ctx.fillStyle = darken(base, 0.28);
+  ctx.fillRect(dx-2, dy, dw+4, dh+2);
+  ctx.fillStyle = darken(base, 0.48);
+  ctx.fillRect(dx, dy, dw, dh);
+  ctx.fillStyle = 'rgba(0,0,0,0.11)';
+  const grains = Math.max(2, Math.floor(dw/4));
+  for (let gi = 1; gi < grains; gi++)
+    ctx.fillRect(dx+Math.round(dw*gi/grains), dy+2, 1, dh-4);
+  ctx.fillStyle = '#DDBB44';
+  ctx.fillRect(dx+Math.round(dw*0.70), dy+Math.round(dh*0.48),
+               Math.max(1, Math.round(dw*0.16)), Math.round(dh*0.14));
+}
+
+// Draw left + right facades for a building tile.
+// Called in a separate pass (after all ground tiles) so facades appear in front.
+function drawBuildingFacade(sx, sy, col, row, grid, WH) {
+  if (WH < 4) return;
+  const tw = TILE_W, th = TILE_H;
+  const locKey = tileLocMap[`${col},${row}`] || 'office';
+  // 广场和公园保持开放户外感，不绘制侧面围墙
+  if (locKey === 'park' || locKey === 'town_square') return;
+  const base   = LOC_BASE[locKey] || '#888888';
+  const ROWS   = grid.length, COLS = grid[0]?.length || 0;
+
+  // Returns true if adjacent tile is same-location building (blocks the facade)
+  const sameLocBldg = (r, c) => {
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+    const t = grid[r][c];
+    if (t !== 2 && t !== 5) return false;
+    return (tileLocMap[`${c},${r}`] || 'office') === locKey;
+  };
+
+  // Left facade (bottom-left diamond edge): hidden by tile (col, row+1)
+  const showLeft  = !sameLocBldg(row+1, col);
+  // Right facade (bottom-right diamond edge): hidden by tile (col+1, row)
+  const showRight = !sameLocBldg(row, col+1);
+
+  const isCenter = locCenterTile[locKey] === `${col},${row}`;
+
+  // Rooftop signboard — drawn first in facade pass so subsequent facade strokes layer above neatly.
+  // Sits above the roof apex. Only on the center tile and only at reasonable zoom.
+  // Buildings with a peaked roof (ROOF_COLORS entry) defer sign drawing to Pass 4
+  // so the sign sits above the roof ridge instead of being covered by it.
+  if (isCenter && tw >= 30 && !ROOF_COLORS[locKey]) {
+    _drawRooftopSign(locKey, sx, sy, tw, th);
+  }
+
+  if (!showLeft && !showRight) return;
+
+  // Kairosoft-style facade outline color (darkened base, not pure black)
+  const outlineC = darken(base, 0.45);
+
+  // Front walls RISE UP from the floor's front edges (instead of dropping below
+  // it). Together with the tall interior back walls (drawBuildingBackWall) they
+  // now enclose the room in a complete ring. Front walls are kept low so the
+  // furniture / residents stay visible over the top — an open-dollhouse look.
+  const FH = Math.max(6, Math.round(WH * 0.55));
+
+  // Floor diamond corners
+  const wX = sx - tw/2, wY = sy + th/2;   // left
+  const sX = sx,        sY = sy + th;     // bottom / front
+  const eX = sx + tw/2, eY = sy + th/2;   // right
+
+  // Per-location accent color for the wall-top trim band (awning / cornice)
+  const TRIM = {
+    cafe:'#CC3322', library:'#C9A24A', office:'#9FB7C4',
+    house_alice:'#DD4477', house_bob:'#3366CC', house_carol:'#DD7722',
+    house_diana:'#8833BB', house_eve:'#22998A', apartment:'#8794AC',
+  };
+  const trimC = TRIM[locKey] || lighten(base, 1.25);
+  const trimH = Math.max(1, Math.round(FH * 0.16));
+
+  // ── FRONT-LEFT WALL (SW edge W→S) — faces SW, lighter sun side ──
+  if (showLeft) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(wX, wY);
+    ctx.lineTo(sX, sY);
+    ctx.lineTo(sX, sY - FH);
+    ctx.lineTo(wX, wY - FH);
+    ctx.closePath();
+    ctx.fillStyle = lighten(base, 1.04);
+    ctx.fill();
+    ctx.strokeStyle = outlineC; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.clip();
+
+    // Mortar lines parallel to the slanted edge
+    const lc = Math.max(1, Math.round(FH / Math.max(6, tw*0.16)));
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 0.7;
+    for (let i = 1; i < lc; i++) {
+      const fy = FH * i / lc;
+      ctx.beginPath(); ctx.moveTo(wX, wY - fy); ctx.lineTo(sX, sY - fy); ctx.stroke();
+    }
+    // Top trim band (cornice / awning accent)
+    ctx.fillStyle = trimC;
+    ctx.beginPath();
+    ctx.moveTo(wX, wY - FH); ctx.lineTo(sX, sY - FH);
+    ctx.lineTo(sX, sY - FH + trimH); ctx.lineTo(wX, wY - FH + trimH);
+    ctx.closePath(); ctx.fill();
+    // Window on center tile
+    if (isCenter && tw >= 36) {
+      const ww = Math.max(4, Math.round(tw*0.12));
+      const wh = Math.max(4, Math.round(FH*0.46));
+      _facadeWindow(Math.round((wX+sX)/2 - tw*0.10 - ww/2),
+                    Math.round((wY+sY)/2 - FH*0.52), ww, wh, base);
+    }
+    // Office: glass curtain wall reflection bands
+    if (locKey === 'office') {
+      ctx.strokeStyle = 'rgba(160,225,255,0.35)'; ctx.lineWidth = 0.9;
+      const bands = Math.max(2, Math.round(FH / 6));
+      for (let bi = 1; bi < bands; bi++) {
+        const fy = FH * bi / bands;
+        ctx.beginPath(); ctx.moveTo(wX, wY - fy); ctx.lineTo(sX, sY - fy); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // ── FRONT-RIGHT WALL (SE edge S→E) — faces SE, shadowed side ──
+  if (showRight) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(sX, sY);
+    ctx.lineTo(eX, eY);
+    ctx.lineTo(eX, eY - FH);
+    ctx.lineTo(sX, sY - FH);
+    ctx.closePath();
+    ctx.fillStyle = darken(base, 0.80);
+    ctx.fill();
+    ctx.strokeStyle = outlineC; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.clip();
+
+    const lc = Math.max(1, Math.round(FH / Math.max(6, tw*0.16)));
+    ctx.strokeStyle = 'rgba(0,0,0,0.14)'; ctx.lineWidth = 0.7;
+    for (let i = 1; i < lc; i++) {
+      const fy = FH * i / lc;
+      ctx.beginPath(); ctx.moveTo(sX, sY - fy); ctx.lineTo(eX, eY - fy); ctx.stroke();
+    }
+    // Top trim band (darker shadow side)
+    ctx.fillStyle = darken(trimC, 0.82);
+    ctx.beginPath();
+    ctx.moveTo(sX, sY - FH); ctx.lineTo(eX, eY - FH);
+    ctx.lineTo(eX, eY - FH + trimH); ctx.lineTo(sX, sY - FH + trimH);
+    ctx.closePath(); ctx.fill();
+    // Door on center tile — stands on the front edge
+    if (isCenter && tw >= 34) {
+      const dw = Math.max(4, Math.round(tw*0.13));
+      const dh = Math.max(6, Math.round(FH*0.78));
+      const mx = (sX+eX)/2, my = (sY+eY)/2;
+      _facadeDoor(Math.round(mx + tw*0.02 - dw/2), Math.round(my - dh), dw, dh, base);
+    }
+    // Office: glass curtain wall reflection bands
+    if (locKey === 'office') {
+      ctx.strokeStyle = 'rgba(160,225,255,0.35)'; ctx.lineWidth = 0.9;
+      const bands = Math.max(2, Math.round(FH / 6));
+      for (let bi = 1; bi < bands; bi++) {
+        const fy = FH * bi / bands;
+        ctx.beginPath(); ctx.moveTo(sX, sY - fy); ctx.lineTo(eX, eY - fy); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Kairosoft-style triangular peaked roof for an entire building.
+// Drawn ONCE per building (not per-tile) after all facades are done.
+// ─────────────────────────────────────────────────────────────
+function drawBuildingRoof(locKey, bounds) {
+  const roofColor = ROOF_COLORS[locKey];
+  if (!roofColor) return;            // open plaza / park → no roof
+  const { minC, maxC, minR, maxR } = bounds;
+
+  const tw = TILE_W, th = TILE_H;
+
+  // Building-footprint diamond corners in screen space.
+  // isoToScreen returns the TOP corner of a tile diamond.
+  //   N corner (back)   = top corner of tile (minC, minR)
+  //   E corner (right)  = right corner of tile (maxC, minR) = isoToScreen(maxC, minR) + (tw/2, th/2)
+  //   S corner (front)  = bottom corner of tile (maxC, maxR) = isoToScreen(maxC, maxR) + (0, th)
+  //   W corner (left)   = left corner of tile (minC, maxR) = isoToScreen(minC, maxR) + (-tw/2, th/2)
+  const n = isoToScreen(minC, minR);
+  const e = isoToScreen(maxC, minR);
+  const s = isoToScreen(maxC, maxR);
+  const w = isoToScreen(minC, maxR);
+  const N = { x: n.x,             y: n.y };
+  const E = { x: e.x + tw/2,      y: e.y + th/2 };
+  const S = { x: s.x,             y: s.y + th };
+  const W = { x: w.x - tw/2,      y: w.y + th/2 };
+
+  // Roof peak height — scales with building "size" (max span in tiles)
+  // and with current zoom (TILE_H). Keep within [12, ~2*TILE_H] px.
+  const span = Math.max(maxC - minC + 1, maxR - minR + 1);
+  const roofH = Math.max(12, Math.round(th * 0.55 * Math.min(span, 3) + th * 0.25));
+
+  // Ridge endpoints — horizontal segment at y = (W.y or E.y) − roofH,
+  // running from the screen-X of W to the screen-X of E.
+  // W.y === E.y (both at the "equator" of the footprint diamond).
+  const ridgeY  = W.y - roofH;
+  const ridgeL  = { x: W.x, y: ridgeY };
+  const ridgeR  = { x: E.x, y: ridgeY };
+
+  // Slope colors: back slope (north-facing) is lit, front slope (south-facing) is shadowed.
+  const lit    = lighten(roofColor, 1.15);   // ≈ +15 % brightness
+  const shadow = darken(roofColor, 0.80);    // ≈ −20 % brightness
+  const stroke = darken(roofColor, 0.45);    // outline
+
+  ctx.save();
+  ctx.lineJoin = 'miter';
+  ctx.lineCap  = 'round';
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = stroke;
+
+  // ── BACK slope (LIT, north-facing) ──
+  // Pentagon: W → ridgeL → ridgeR → E → N → W
+  // The bottom edge (W→N→E) traces the back perimeter of the footprint diamond.
+  ctx.beginPath();
+  ctx.moveTo(W.x,        W.y);
+  ctx.lineTo(ridgeL.x,   ridgeL.y);
+  ctx.lineTo(ridgeR.x,   ridgeR.y);
+  ctx.lineTo(E.x,        E.y);
+  ctx.lineTo(N.x,        N.y);
+  ctx.closePath();
+  ctx.fillStyle = lit;
+  ctx.fill();
+  ctx.stroke();
+
+  // ── FRONT slope (SHADOW, south-facing) ──
+  // Pentagon: W → S → E → ridgeR → ridgeL → W
+  ctx.beginPath();
+  ctx.moveTo(W.x,        W.y);
+  ctx.lineTo(S.x,        S.y);
+  ctx.lineTo(E.x,        E.y);
+  ctx.lineTo(ridgeR.x,   ridgeR.y);
+  ctx.lineTo(ridgeL.x,   ridgeL.y);
+  ctx.closePath();
+  ctx.fillStyle = shadow;
+  ctx.fill();
+  ctx.stroke();
+
+  // ── Ridge highlight ── (draw last so it sits on top of both slopes)
+  ctx.beginPath();
+  ctx.moveTo(ridgeL.x, ridgeL.y);
+  ctx.lineTo(ridgeR.x, ridgeR.y);
+  ctx.strokeStyle = darken(roofColor, 0.55);
+  ctx.lineWidth   = 1.8;
+  ctx.stroke();
+
+  // Subtle horizontal pixel-tile rows on the lit slope for that Kairosoft texture
+  // (only at decent zoom)
+  if (tw >= 32) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(W.x, W.y);
+    ctx.lineTo(ridgeL.x, ridgeL.y);
+    ctx.lineTo(ridgeR.x, ridgeR.y);
+    ctx.lineTo(E.x, E.y);
+    ctx.lineTo(N.x, N.y);
+    ctx.closePath();
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    ctx.lineWidth   = 0.8;
+    const rows = Math.max(2, Math.round(roofH / 6));
+    for (let i = 1; i < rows; i++) {
+      const t = i / rows;
+      const y = W.y + (ridgeY - W.y) * t;
+      ctx.beginPath();
+      ctx.moveTo(W.x, y);
+      ctx.lineTo(E.x, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Same on shadow slope
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(W.x, W.y);
+    ctx.lineTo(S.x, S.y);
+    ctx.lineTo(E.x, E.y);
+    ctx.lineTo(ridgeR.x, ridgeR.y);
+    ctx.lineTo(ridgeL.x, ridgeL.y);
+    ctx.closePath();
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+    ctx.lineWidth   = 0.8;
+    const rows2 = Math.max(2, Math.round(roofH / 6));
+    for (let i = 1; i < rows2; i++) {
+      const t = i / rows2;
+      const y = W.y + (ridgeY - W.y) * t;
+      ctx.beginPath();
+      ctx.moveTo(W.x, y);
+      ctx.lineTo(E.x, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function drawFloorTile(sx, sy, col, row) {
+  const tw = TILE_W, th = TILE_H;
+  const locKey = tileLocMap[`${col},${row}`] || 'office';
+  const floorC = FLOOR_C[locKey] || '#EDE0C8';
+  // Base diamond (serves as fallback if texture not yet loaded)
+  const alt = (col+row) % 2;
+  isoDiamond(sx, sy, alt ? '#EDE0C8' : '#F5EDD8', 'rgba(180,140,80,0.2)', 0.4);
+  // Overlay location-specific floor texture (same as drawBuildingTile)
+  if (tw >= 22) _roofFloor(locKey, sx, sy, tw, th, floorC);
+}
+
+function drawTreeTile(sx, sy, col, row) {
+  const tw = TILE_W, th = TILE_H;
+  // Ground base — use grass texture, fallback to solid color
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  const _gImg = tileImages.grass;
+  if (_gImg?.complete && _gImg.naturalWidth > 0) {
+    ctx.beginPath();
+    ctx.moveTo(sx, sy); ctx.lineTo(sx+tw/2, sy+th/2);
+    ctx.lineTo(sx, sy+th); ctx.lineTo(sx-tw/2, sy+th/2);
+    ctx.closePath(); ctx.clip();
+    ctx.drawImage(_gImg, Math.round(sx - tw/2), Math.round(sy), tw, th);
+  } else {
+    isoDiamond(sx, sy, '#C8B060', null);
+  }
+  ctx.restore();
+
+  // Trunk and crown are drawn in a separate pass (drawGrid Pass 1.5)
+  // so they are never covered by subsequent ground tile diamonds.
+}
+
+// Draw trunk + crown only — called after all ground tiles are done.
+function drawTreeTrunkCrown(sx, sy, col, row) {
+  const tw = TILE_W, th = TILE_H;
+  const seed = (col*1637+row*431)|0;
+  const treeH  = Math.round(th * (2.0 + (Math.abs(seed)%4)*0.15));
+  const crownR = Math.round(tw * (0.30 + (Math.abs(seed)%3)*0.04));
+
+  // Shared anchor — tile's isometric screen centre (same point for trunk and crown)
+  const bx = Math.round(sx);
+  const by = Math.round(sy + th/2);
+
+  // ── Soft ground shadow — grounds the tree (Kairosoft polish) ──
+  ctx.save();
+  ctx.fillStyle = 'rgba(40,60,30,0.18)';
+  ctx.beginPath();
+  ctx.ellipse(bx, by + Math.round(th*0.05),
+              Math.round(crownR*0.95), Math.round(crownR*0.34), 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  // Trunk — height reaches exactly to crown bottom so trunk and crown connect
+  const trW = Math.max(3, Math.round(tw*0.09));
+  const trH = treeH - crownR;   // trunk top meets crown bottom edge
+  ctx.fillStyle = '#7A4820';
+  ctx.fillRect(bx - Math.round(trW/2), by - trH, trW, trH);
+  ctx.fillStyle = '#9A6040';
+  ctx.fillRect(bx - Math.round(trW/2), by - trH, Math.round(trW*0.35), trH);
+
+  const crX = bx;
+  const crY = by - treeH;  // crown centre = anchor − treeH
+
+  // Seed-based foliage palette → natural variation [shadow, main, highlight]
+  const PALETTES = [
+    ['#2F7C32','#4DC045','#8FE06A'],
+    ['#2A6E34','#43B252','#7FD562'],
+    ['#357A2A','#5BC04A','#9CE070'],
+  ];
+  const pal = PALETTES[Math.abs(seed) % PALETTES.length];
+
+  // Fuller canopy = 3 overlapping blobs (center + two lower sides)
+  const blobs = [
+    [crX,                           crY,                           crownR],
+    [crX - Math.round(crownR*0.62), crY + Math.round(crownR*0.34), Math.round(crownR*0.74)],
+    [crX + Math.round(crownR*0.62), crY + Math.round(crownR*0.34), Math.round(crownR*0.74)],
+  ];
+
+  // Shadow layer (offset down-right)
+  ctx.fillStyle = pal[0];
+  for (const [x, y, r] of blobs) {
+    ctx.beginPath();
+    ctx.arc(x + Math.round(crownR*0.10), y + Math.round(crownR*0.12), r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  // Main foliage
+  ctx.fillStyle = pal[1];
+  for (const [x, y, r] of blobs) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  // Highlight (top-left of main blob)
+  ctx.fillStyle = pal[2];
+  ctx.beginPath();
+  ctx.arc(crX - Math.round(crownR*0.26), crY - Math.round(crownR*0.26),
+          Math.round(crownR*0.46), 0, Math.PI*2);
+  ctx.fill();
+}
+
+// ============================================================
+// INTERIOR BACK WALLS  (Kairosoft "open-box dollhouse" style)
+// Draws the two back interior wall faces visible above the floor level.
+// Back-left  wall: exposed when no same-building tile to the LEFT  (col−1)
+// Back-right wall: exposed when no same-building tile ABOVE (row−1)
+// These walls go UP from the back edges of the isometric diamond.
+// ============================================================
+function drawBuildingBackWall(sx, sy, col, row, grid, WH) {
+  if (WH < 4 || TILE_W < 18) return;
+  const tw = TILE_W, th = TILE_H;
+  const locKey = tileLocMap[`${col},${row}`] || 'office';
+  if (locKey === 'park' || locKey === 'town_square') return;
+
+  const base = LOC_BASE[locKey] || '#888888';
+  const ROWS = grid.length, COLS = grid[0]?.length || 0;
+
+  const sameLocBldg = (r, c) => {
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+    const t = grid[r][c];
+    if (t !== 2 && t !== 5) return false;
+    return (tileLocMap[`${c},${r}`] || 'office') === locKey;
+  };
+
+  const showBackLeft  = !sameLocBldg(row, col - 1);  // left face of back wall
+  const showBackRight = !sameLocBldg(row - 1, col);  // right face of back wall
+  if (!showBackLeft && !showBackRight) return;
+
+  const outlineC  = darken(base, 0.48);
+  const isCenter  = locCenterTile[locKey] === `${col},${row}`;
+
+  // Interior wall colors: lighter than exterior (lit from above / inside)
+  const intLeft  = lighten(base, 1.18);   // left wall — sun side
+  const intRight = lighten(base, 1.08);   // right wall — slightly shadowed
+
+  // Wallpaper / interior detail colors
+  const WALLPAPER = {
+    cafe:        '#F5D9B0', library: '#D4C4A8', office: '#C8D8DC',
+    house_alice: '#FADADD', house_bob: '#CADCF5', house_carol: '#FAE0C8',
+    house_diana: '#E8D8F0', house_eve: '#C8EDE8', apartment: '#DAD7C8',
+  };
+  const wpColor = WALLPAPER[locKey] || '#EEDCC8';
+
+  // ── BACK-LEFT WALL ─────────────────────────────────────────
+  // Diamond left edge: (sx−tw/2, sy+th/2) → (sx, sy)
+  // Wall parallelogram rising by WH upward.
+  if (showBackLeft) {
+    const x0 = Math.round(sx - tw/2), y0 = Math.round(sy + th/2);
+    const x1 = Math.round(sx),        y1 = Math.round(sy);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.lineTo(x1, y1 - WH);
+    ctx.lineTo(x0, y0 - WH);
+    ctx.closePath();
+    ctx.fillStyle = intLeft;
+    ctx.fill();
+    ctx.strokeStyle = outlineC; ctx.lineWidth = 1.0; ctx.stroke();
+
+    // Wallpaper fill (clipped)
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = wpColor;
+    ctx.globalAlpha = 0.28;
+    ctx.fillRect(x0 - 2, y1 - WH, (x1 - x0) + 4, WH * 0.7);
+    ctx.globalAlpha = 1.0;
+    // Horizontal mortar / panel lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.09)'; ctx.lineWidth = 0.6;
+    const lc = Math.max(2, Math.round(WH / Math.max(6, tw * 0.13)));
+    for (let i = 1; i < lc; i++) {
+      const fy = WH * i / lc;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0 - fy);
+      ctx.lineTo(x1, y1 - fy);
+      ctx.stroke();
+    }
+    // Interior window (center tile only)
+    if (isCenter && tw >= 36 && WH >= 18) {
+      const ww = Math.max(4, Math.round(tw * 0.10));
+      const wh = Math.max(4, Math.round(WH * 0.36));
+      const wx = Math.round((x0 + x1) / 2 - ww / 2 - tw * 0.05);
+      const wy = Math.round(y1 - WH * 0.72);
+      ctx.fillStyle = darken(intLeft, 0.30); ctx.globalAlpha = 1;
+      ctx.fillRect(wx - 1, wy - 1, ww + 2, wh + 2);
+      ctx.fillStyle = '#A8D8F0'; ctx.fillRect(wx, wy, ww, wh);
+      ctx.fillStyle = 'rgba(220,248,255,0.60)'; ctx.fillRect(wx, wy, ww, Math.round(wh*0.46));
+      ctx.strokeStyle = 'rgba(255,255,255,0.70)'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(wx + Math.round(ww/2), wy); ctx.lineTo(wx + Math.round(ww/2), wy+wh); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(wx, wy + Math.round(wh/2)); ctx.lineTo(wx+ww, wy + Math.round(wh/2)); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // ── BACK-RIGHT WALL ────────────────────────────────────────
+  // Diamond right edge: (sx, sy) → (sx+tw/2, sy+th/2)
+  if (showBackRight) {
+    const x0 = Math.round(sx),        y0 = Math.round(sy);
+    const x1 = Math.round(sx + tw/2), y1 = Math.round(sy + th/2);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.lineTo(x1, y1 - WH);
+    ctx.lineTo(x0, y0 - WH);
+    ctx.closePath();
+    ctx.fillStyle = intRight;
+    ctx.fill();
+    ctx.strokeStyle = outlineC; ctx.lineWidth = 1.0; ctx.stroke();
+
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = wpColor;
+    ctx.globalAlpha = 0.24;
+    ctx.fillRect(x0 - 2, y0 - WH, (x1 - x0) + 4, WH * 0.7);
+    ctx.globalAlpha = 1.0;
+    ctx.strokeStyle = 'rgba(0,0,0,0.10)'; ctx.lineWidth = 0.6;
+    const lc2 = Math.max(2, Math.round(WH / Math.max(6, tw * 0.13)));
+    for (let i = 1; i < lc2; i++) {
+      const fy = WH * i / lc2;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0 - fy);
+      ctx.lineTo(x1, y1 - fy);
+      ctx.stroke();
+    }
+    if (isCenter && tw >= 36 && WH >= 18) {
+      const ww = Math.max(4, Math.round(tw * 0.10));
+      const wh = Math.max(4, Math.round(WH * 0.36));
+      const wx = Math.round((x0 + x1) / 2 - ww / 2 + tw * 0.04);
+      const wy = Math.round(y0 - WH * 0.72);
+      ctx.fillStyle = darken(intRight, 0.30); ctx.globalAlpha = 1;
+      ctx.fillRect(wx - 1, wy - 1, ww + 2, wh + 2);
+      ctx.fillStyle = '#A8D8F0'; ctx.fillRect(wx, wy, ww, wh);
+      ctx.fillStyle = 'rgba(220,248,255,0.60)'; ctx.fillRect(wx, wy, ww, Math.round(wh*0.46));
+      ctx.strokeStyle = 'rgba(255,255,255,0.70)'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(wx + Math.round(ww/2), wy); ctx.lineTo(wx + Math.round(ww/2), wy+wh); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(wx, wy + Math.round(wh/2)); ctx.lineTo(wx+ww, wy + Math.round(wh/2)); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// DRAW GRID (isometric painter's order)
+// ============================================================
+// Draw-layer constants for the unified object sort. The ground plane (z=0,
+// flat, can't occlude anything) is drawn first as a base pass; everything with
+// HEIGHT is then emitted into one list and sorted back-to-front by iso depth
+// (grid col+row), breaking ties by layer. This replaces the old 6 fixed passes
+// and the hand-tuned depth offsets (+1.10 / +0.62) with a single comparator.
+const L_FLOORDECAL = -1; // flat decals (carpets / floor patterns) — under everything
+const L_BACKWALL   = 0;  // interior back walls — rise from a cell's back edges
+const L_OBJECT     = 1;  // trees, furniture pieces, characters — standing on ground
+const L_FACADE     = 2;  // low front walls + the building's rooftop sign
+
+function drawGrid(agents, ts) {
+  if (!sortedTiles) return;
+  const grid = gameState.grid;
+  const pad = Math.max(TILE_W, 120);
+  const WH  = Math.round(TILE_H * 1.35);  // wall / facade height in px
+
+  const onX = (sx) => !(sx + TILE_W < -pad || sx - TILE_W > canvas.width + pad);
+  const onY = (sy, extra=0) => !(sy + TILE_H + WH + extra < -pad || sy - extra > canvas.height + pad);
+
+  // ── BASE PASS: the flat ground plane (grass / path / water / floors /
+  //    building-floor diamonds). All at z=0, drawn in iso order; a flat tile
+  //    can never occlude something with height, so this is a clean base. ──
+  const items = [];   // everything with HEIGHT goes here for the unified sort
+  for (const [c, r, t] of sortedTiles) {
+    const {x: sx, y: sy} = isoToScreen(c, r);
+    if (!onX(sx) || !onY(sy, 20)) continue;
+    switch (t) {
+      case 0: case 6: drawGrassTile(sx, sy, c, r, t); break;
+      case 1: drawPathTile(sx, sy, c, r); break;
+      case 2: drawBuildingTile(sx, sy, c, r); break;
+      case 4: drawWaterTile(sx, sy, c, r); break;
+      case 5: drawFloorTile(sx, sy, c, r); break;
+      case 3:
+        drawTreeTile(sx, sy, c, r);   // grass base = ground
+        // foliage has height → goes into the sorted object pass
+        items.push({depth: c + r, layer: L_OBJECT, draw: () => drawTreeTrunkCrown(sx, sy, c, r)});
+        break;
+    }
+  }
+
+  // ── Interior back walls (one per exposed back edge of a building cell) ──
+  for (const [c, r] of buildingTilesList) {
+    const {x: sx, y: sy} = isoToScreen(c, r);
+    if (!onX(sx) || !onY(sy)) continue;
+    items.push({depth: c + r, layer: L_BACKWALL, draw: () => drawBuildingBackWall(sx, sy, c, r, grid, WH)});
+  }
+
+  // ── Furniture: every PIECE sorted individually by its own ground anchor.
+  //    _drawIsoFurniture returns [{wx,wy,fn,floor}] in room-local world space;
+  //    a piece at world (wx,wy) maps to iso depth = roomCenterDepth + (wy - wx),
+  //    so each piece interleaves with characters and other pieces. Each piece is
+  //    clipped to the open-box room interior so it can't spill onto walls. ──
+  if (buildingBounds) {
+    for (const [locKey, bb] of Object.entries(buildingBounds)) {
+      const cx = (bb.minC + bb.maxC) / 2, cy = (bb.minR + bb.maxR) / 2;
+      const {x: sx, y: sy} = isoToScreen(cx, cy);
+      if (sx + TILE_W*3 < -pad || sx - TILE_W*3 > canvas.width + pad) continue;
+      if (sy + TILE_H*5 < -pad || sy - TILE_H*2 > canvas.height + pad) continue;
+      const N2 = isoToScreen(bb.minC, bb.minR);
+      const E2 = isoToScreen(bb.maxC, bb.minR);
+      const S2 = isoToScreen(bb.maxC, bb.maxR);
+      const W2 = isoToScreen(bb.minC, bb.maxR);
+      const clipRoom = () => {
+        ctx.beginPath();
+        ctx.moveTo(W2.x - TILE_W/2, W2.y + TILE_H/2);
+        ctx.lineTo(W2.x - TILE_W/2, W2.y + TILE_H/2 - WH);
+        ctx.lineTo(N2.x,            N2.y - WH);
+        ctx.lineTo(E2.x + TILE_W/2, E2.y + TILE_H/2 - WH);
+        ctx.lineTo(E2.x + TILE_W/2, E2.y + TILE_H/2);
+        ctx.lineTo(S2.x,            S2.y + TILE_H);
+        ctx.closePath();
+        ctx.clip();
+      };
+      for (const p of _drawIsoFurniture(locKey, sx, sy, TILE_W, TILE_H)) {
+        const fn = p.fn;
+        items.push({
+          depth: cx + cy + (p.wy - p.wx),
+          layer: p.floor ? L_FLOORDECAL : L_OBJECT,
+          draw: () => { ctx.save(); clipRoom(); fn(); ctx.restore(); },
+        });
+      }
+    }
+  }
+
+  // ── Characters — pushed AFTER furniture so a resident at the same iso depth
+  //    as a room's furniture clump renders on top of it (stable sort) ──
+  for (const agent of agents || []) {
+    const iso = isoToScreen(agent.x, agent.y);
+    if (iso.x < -pad || iso.x > canvas.width + pad) continue;
+    if (iso.y < -pad || iso.y > canvas.height + pad) continue;
+    items.push({depth: agent.x + agent.y, layer: L_OBJECT, draw: () => drawCharacter(agent, ts)});
+  }
+
+  // ── Low front walls + rooftop signs (front faces of each building cell) ──
+  for (const [c, r] of buildingTilesList) {
+    const {x: sx, y: sy} = isoToScreen(c, r);
+    if (!onX(sx) || !onY(sy)) continue;
+    items.push({depth: c + r, layer: L_FACADE, draw: () => drawBuildingFacade(sx, sy, c, r, grid, WH)});
+  }
+
+  // Single back-to-front painter sort: iso depth first, then layer.
+  // Array.sort is stable → equal (depth, layer) keeps insertion order
+  // (tree foliage → furniture → characters).
+  items.sort((a, b) => a.depth - b.depth || a.layer - b.layer);
+  for (const it of items) it.draw();
+
+  // ── Peaked roofs + their signs (only buildings with a ROOF_COLORS entry;
+  //    none by default — open-top buildings draw their sign inside the facade) ──
+  if (buildingBounds) {
+    const roofOrder = Object.entries(buildingBounds)
+      .sort(([,a],[,b]) => (a.minC + a.minR) - (b.minC + b.minR) || a.minC - b.minC);
+    for (const [locKey, bb] of roofOrder) {
+      if (!ROOF_COLORS[locKey]) continue;
+      const {x: sx, y: sy} = isoToScreen(bb.minC, bb.minR);
+      if (sx + TILE_W*4 < -pad || sx - TILE_W*4 > canvas.width+pad) continue;
+      if (sy + TILE_H*8 < -pad || sy - TILE_H*4 > canvas.height+pad) continue;
+      drawBuildingRoof(locKey, bb);
+    }
+    for (const [locKey, bb] of roofOrder) {
+      if (!ROOF_COLORS[locKey]) continue;
+      if (TILE_W < 30) continue;
+      const centerKey = locCenterTile[locKey];
+      if (!centerKey) continue;
+      const [cc, cr] = centerKey.split(',').map(Number);
+      const {x: sx, y: sy} = isoToScreen(cc, cr);
+      const span  = Math.max(bb.maxC - bb.minC + 1, bb.maxR - bb.minR + 1);
+      const roofH = Math.max(12, Math.round(TILE_H * 0.55 * Math.min(span, 3) + TILE_H * 0.25));
+      _drawRooftopSign(locKey, sx, sy - roofH, TILE_W, TILE_H);
+    }
+  }
+}
+
+// ============================================================
+// LOCATION LABELS
+// ============================================================
+function drawLocationLabels(locs, agents=[]) {
+  if (!locs || TILE_W < 20) return;
+  ctx.save();
+  const fs = Math.max(8, Math.round(TILE_W * 0.22));
+  ctx.font = `bold ${fs}px 'Courier New'`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  for (const [key, loc] of Object.entries(locs)) {
+    const {x: sx, y: sy} = isoToScreen(loc.center[0], loc.center[1]);
+    const lx = sx, ly = sy - Math.round(TILE_H * (LOC_H[key]||1.6)) - 14;
+    if (lx < -80||lx > canvas.width+80||ly < -20||ly > canvas.height+20) continue;
+    const blocked = agents.some(agent => {
+      const ai = isoToScreen(agent.x, agent.y);
+      const ax = ai.x;
+      const ay = ai.y + TILE_H / 2 - Math.max(18, TILE_W * 0.45);
+      return Math.abs(ax - lx) < TILE_W * 0.55 && Math.abs(ay - ly) < TILE_H * 1.4;
+    });
+    if (blocked) continue;
+
+    const tw2 = ctx.measureText(loc.label).width;
+    const pw = tw2 + 14, ph = fs + 7;
+    roundRect(ctx, lx-pw/2, ly-ph/2, pw, ph, ph/2);
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
+    ctx.strokeStyle = LOC_BASE[key]||'#FF9966'; ctx.lineWidth = 1.8; ctx.stroke();
+    ctx.fillStyle = '#552200'; ctx.fillText(loc.label, lx, ly);
+  }
+  ctx.restore();
+}
+
+// ============================================================
+// CHARACTER SPRITE (pixel-art sprite sheet)
+// ============================================================
+function drawCharacter(agent, ts) {
+  const iso = isoToScreen(agent.x, agent.y);
+  const fx  = Math.round(iso.x);
+  const fy  = Math.round(iso.y + TILE_H / 2);   // feet Y
+
+  const s   = Math.max(0.4, TILE_W / 64);
+  const P   = v => v * s;
+
+  ensureSprite(agent.id);                 // lazy-load this resident's sprite
+  const sheet = spriteSheets[agent.id];
+  const ready = sheet?.complete && sheet.naturalWidth > 0;
+
+  // Sprite scale: integer multiple of source pixels for crisp art
+  const sc    = Math.max(1, Math.round(s * 2));
+  const drawW = 16 * sc;
+  const drawH = 24 * sc;
+  const dx    = fx - Math.round(drawW / 2);
+  const dy    = fy - drawH;                      // top of sprite
+
+  // Head center in screen coords (sprite row ~5/24 from top)
+  const headCY = dy + Math.round(drawH * 0.23);
+
+  ctx.save();
+
+  // Ground shadow
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(fx, fy + Math.round(P(1.5)),
+              Math.round(P(5.5)), Math.round(P(2)), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  if (ready) {
+    // ── SPRITE ──
+    const frameIdx = agentSpriteInfo(agent, ts);
+    const walk   = frameIdx % 4;
+    const moving = agent.current_location !== agent.target_location;
+    // Walk: hop up 1px on the mid-stride frames; idle: slow breathing bob.
+    const bobY = moving
+      ? ((walk === 1 || walk === 3) ? -sc : 0)
+      : -Math.round(Math.abs(Math.sin(ts / 650)) * sc * 0.6);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sheet, frameIdx * 16, 0, 16, 24, dx, dy + bobY, drawW, drawH);
+  } else {
+    // ── FALLBACK: colored block ──
+    const skin = agent.skin || '#FFCC80';
+    const hair = agent.hair || '#5D4037';
+    const outfit = agent.color || '#88AADD';
+    const px = Math.max(1, sc);
+    const bob = (agent.current_location !== agent.target_location)
+      ? Math.round(Math.abs(Math.sin(ts / 180)) * px)
+      : 0;
+    const ox = fx - 8 * px;
+    const oy = dy - bob;
+    ctx.fillStyle = hair;
+    ctx.fillRect(ox + 3*px, oy + 0*px, 10*px, 3*px);
+    ctx.fillRect(ox + 2*px, oy + 2*px, 12*px, 3*px);
+    ctx.fillStyle = skin;
+    ctx.fillRect(ox + 4*px, oy + 4*px, 8*px, 5*px);
+    ctx.fillStyle = '#1A1020';
+    ctx.fillRect(ox + 5*px, oy + 6*px, px, px);
+    ctx.fillRect(ox + 10*px, oy + 6*px, px, px);
+    ctx.fillStyle = outfit;
+    ctx.fillRect(ox + 3*px, oy + 9*px, 10*px, 8*px);
+    ctx.fillStyle = lighten(outfit, 1.18);
+    ctx.fillRect(ox + 3*px, oy + 9*px, 10*px, px);
+    ctx.fillStyle = darken(outfit, 0.72);
+    ctx.fillRect(ox + 1*px, oy + 10*px, 2*px, 6*px);
+    ctx.fillRect(ox + 13*px, oy + 10*px, 2*px, 6*px);
+    ctx.fillStyle = '#33334A';
+    ctx.fillRect(ox + 4*px, oy + 17*px, 3*px, 5*px);
+    ctx.fillRect(ox + 9*px, oy + 17*px, 3*px, 5*px);
+    ctx.fillStyle = '#201820';
+    ctx.fillRect(ox + 3*px, oy + 22*px, 4*px, 2*px);
+    ctx.fillRect(ox + 9*px, oy + 22*px, 4*px, 2*px);
+  }
+
+  // ── SELECTION RING ──
+  if (agent.id === selectedAgent) {
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth   = Math.max(1.5, sc * 1.5);
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.arc(fx, headCY, Math.round(drawW * 0.52), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // ── TALKING PULSE ──
+  if (agent.chat_bubble) {
+    const pulse = 0.45 + 0.55 * Math.abs(Math.sin(ts / 195));
+    ctx.strokeStyle = '#FF9F6A';
+    ctx.lineWidth   = Math.max(1, sc * 1.2);
+    ctx.globalAlpha = pulse;
+    ctx.beginPath();
+    ctx.arc(fx, headCY, Math.round(drawW * 0.60), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+
+  // ── NAME TAG ──
+  if (TILE_W >= 20) {
+    ctx.save();
+    const nfs = Math.max(7, Math.round(P(9)));
+    ctx.font = `bold ${nfs}px 'Courier New'`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw2 = ctx.measureText(agent.name).width;
+    const nw = tw2 + 10, nh = nfs + 5;
+    const ny = dy - nh - Math.round(P(2));
+    roundRect(ctx, fx - nw / 2, ny, nw, nh, nh / 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
+    ctx.strokeStyle = agent.color; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#333'; ctx.fillText(agent.name, fx, ny + nh / 2);
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// CHAT BUBBLES
+// ============================================================
+function drawChatBubbles(agents) {
+  for (const agent of agents) {
+    if (!agent.chat_bubble) continue;
+    const iso = isoToScreen(agent.x, agent.y);
+    const s = Math.max(0.4, TILE_W/64);
+    const headTopY = Math.round(iso.y + TILE_H/2 - s*23);  // approx head top screen y
+    const cx = Math.round(iso.x);
+
+    if (cx<-140||cx>canvas.width+140||headTopY<-80||headTopY>canvas.height+80) continue;
+
+    ctx.save();
+    const fs = Math.max(9, Math.round(10*s));
+    ctx.font = `${fs}px 'Courier New'`;
+
+    const maxW = 145;
+    let lines = [], cur = '';
+    for (const ch of agent.chat_bubble.split('')) {
+      if (ctx.measureText(cur+ch).width > maxW) { lines.push(cur); cur=ch; }
+      else cur += ch;
+    }
+    if (cur) lines.push(cur);
+    lines = lines.slice(0, 3);
+
+    const lh = fs + 4;
+    const bw = Math.max(55, Math.max(...lines.map(l=>ctx.measureText(l).width)) + 18);
+    const bh = lines.length * lh + 10;
+    const by = headTopY - 12;
+
+    roundRect(ctx, cx - bw/2, by - bh, bw, bh, 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.fill();
+    ctx.strokeStyle = agent.color; ctx.lineWidth = 2; ctx.stroke();
+
+    // Tail
+    ctx.beginPath();
+    ctx.moveTo(cx-7, by-1); ctx.lineTo(cx+7, by-1); ctx.lineTo(cx, by+9);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.fill();
+    ctx.strokeStyle = agent.color; ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(cx-7, by-1); ctx.lineTo(cx, by+9);
+    ctx.moveTo(cx+7, by-1); ctx.lineTo(cx, by+9);
+    ctx.stroke();
+
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = '#222';
+    for (let i = 0; i < lines.length; i++)
+      ctx.fillText(lines[i], cx, by - bh + 5 + i*lh);
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// ROUNDED RECT HELPER
+// ============================================================
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+// ============================================================
+// RENDER LOOP
+// ============================================================
+function render(ts) {
+  requestAnimationFrame(render);
+  animTs = ts;
+
+  ctx.fillStyle = '#E9DAB9';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (!gameState) {
+    ctx.fillStyle = '#665544';
+    ctx.font = 'bold 16px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText('正在连接服务器...', canvas.width/2, canvas.height/2);
+    return;
+  }
+
+  // Sort characters by isometric depth (x+y) for painter's order
+  const sorted = [...gameState.agents].sort((a,b) => (a.x+a.y)-(b.x+b.y));
+  drawGrid(sorted, ts);
+  drawChatBubbles(sorted);
+  drawLocationLabels(gameState.locations, sorted);
+}
+
+// ============================================================
+// CANVAS SETUP
+// ============================================================
+function setupCanvas() {
+  canvas = document.getElementById('gameCanvas');
+  ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  const wrap = document.getElementById('canvas-wrap');
+  function resize() {
+    const sb = document.getElementById('sidebar');
+    const hd = document.getElementById('header');
+    const ft = document.getElementById('footer');
+    const mobile = window.innerWidth <= 760;
+    const availableH = window.innerHeight - hd.offsetHeight - ft.offsetHeight;
+    const w = mobile ? window.innerWidth : window.innerWidth - sb.offsetWidth;
+    const h = mobile ? Math.max(270, Math.round(availableH * 0.46)) : availableH;
+    wrap.style.width = w+'px'; wrap.style.height = h+'px';
+    canvas.width = w; canvas.height = h;
+    if (!camInitialized) {
+      camInitialized = true;
+      // iso center of ~30×25 grid: (col15-row12.5)*TILE_W/2 ≈ 80px right of camX
+      camX = w/2 - 80;
+      camY = 60;
+    }
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Drag to pan
+  canvas.addEventListener('mousedown', e => {
+    isDragging = true; hasDragged = false;
+    dragStart = {x:e.clientX, y:e.clientY};
+    camStart  = {x:camX, y:camY};
+    canvas.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (isDragging) {
+      const dx = e.clientX-dragStart.x, dy = e.clientY-dragStart.y;
+      if (Math.abs(dx)>3||Math.abs(dy)>3) hasDragged = true;
+      camX = camStart.x + dx; camY = camStart.y + dy; return;
+    }
+    if (!gameState?.agents) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+    const over = gameState.agents.some(a => {
+      const iso = isoToScreen(a.x, a.y);
+      return Math.hypot(mx - iso.x, my - (iso.y + TILE_H/2)) < Math.max(18, TILE_W*0.4);
+    });
+    canvas.style.cursor = over ? 'pointer' : 'grab';
+  });
+  window.addEventListener('mouseup', () => { isDragging=false; canvas.style.cursor='grab'; });
+  canvas.style.cursor = 'grab';
+
+  // Click to inspect
+  canvas.addEventListener('click', e => {
+    if (hasDragged) return;
+    if (!gameState?.agents) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+    const hitR = Math.max(18, TILE_W*0.4);
+    let hit = null;
+    for (const ag of gameState.agents) {
+      const iso = isoToScreen(ag.x, ag.y);
+      if (Math.hypot(mx-iso.x, my-(iso.y+TILE_H/2)) < hitR) { hit=ag; break; }
+    }
+    if (hit) showInspector(hit, e.clientX, e.clientY);
+    else hideInspector();
+  });
+
+  // Zoom (keep cursor-world-point fixed)
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const mx = e.offsetX, my = e.offsetY;
+    const scale = e.deltaY < 0 ? 1.1 : 0.909;
+    const newTW = Math.max(18, Math.min(128, TILE_W * scale));
+    const sf = newTW / TILE_W;
+    camX = mx + (camX - mx) * sf;
+    camY = my + (camY - my) * sf;
+    TILE_W = newTW;
+    TILE_H = TILE_W / 2;
+  }, {passive:false});
+}
+
+// ============================================================
+// INSPECTOR
+// ============================================================
+function showInspector(agent, clientX, clientY) {
+  selectedAgent = agent.id;
+  const panel = document.getElementById('agent-inspector');
+  document.getElementById('insp-dot').style.background    = agent.color;
+  document.getElementById('insp-name').style.color        = agent.color;
+  document.getElementById('insp-name').textContent        = agent.name;
+  document.getElementById('insp-job').textContent         = agent.occupation;
+  document.getElementById('insp-personality').textContent = agent.personality||'';
+  document.getElementById('insp-thought').textContent     = agent.thought ? `💭 ${agent.thought}` : '💭 ...';
+  document.getElementById('insp-status').textContent      = agent.status||'...';
+  const ll = gameState.locations?.[agent.current_location]?.label||agent.current_location||'';
+  document.getElementById('insp-loc').textContent = ll ? '📍 '+ll : '';
+  const mc = agent.memories_count||0;
+  document.querySelector('#agent-inspector .insp-section-title').textContent = `▶ 最近记忆 (${mc}条)`;
+  _renderMemories(agent.memories, mc);
+  panel.classList.add('visible');
+  const wrap = document.getElementById('canvas-wrap');
+  const wr = wrap.getBoundingClientRect();
+  const pw=272, ph=420;
+  let lx = clientX-wr.left+16, ly = clientY-wr.top-40;
+  if (lx+pw > wrap.offsetWidth-6)  lx = wrap.offsetWidth-pw-6;
+  if (ly+ph > wrap.offsetHeight-6) ly = wrap.offsetHeight-ph-6;
+  lx = Math.max(4,lx); ly = Math.max(4,ly);
+  panel.style.left = lx+'px'; panel.style.top = ly+'px';
+}
+function hideInspector() {
+  selectedAgent = null;
+  document.getElementById('agent-inspector').classList.remove('visible');
+}
+function refreshInspector() {
+  if (!selectedAgent||!gameState?.agents) return;
+  const ag = gameState.agents.find(a=>a.id===selectedAgent);
+  if (!ag) return;
+  document.getElementById('insp-thought').textContent = ag.thought ? `💭 ${ag.thought}` : '💭 ...';
+  document.getElementById('insp-status').textContent = ag.status||'...';
+  const ll = gameState.locations?.[ag.current_location]?.label||ag.current_location||'';
+  document.getElementById('insp-loc').textContent = ll ? '📍 '+ll : '';
+  const mc = ag.memories_count||0;
+  document.querySelector('#agent-inspector .insp-section-title').textContent = `▶ 最近记忆 (${mc}条)`;
+  _renderMemories(ag.memories, mc);
+}
+function _renderMemories(mems, count) {
+  const list = document.getElementById('insp-memories');
+  list.innerHTML = '';
+  if (mems===undefined && count>0) {
+    list.innerHTML = `<div class="insp-mem" style="color:#e94560">服务器未发送记忆（共${count}条），请重启服务器</div>`;
+    return;
+  }
+  const shown = mems ? [...mems].reverse().slice(0,10) : [];
+  if (!shown.length) { list.innerHTML='<div class="insp-mem" style="color:#BBAA99">暂无记忆</div>'; return; }
+  shown.forEach((m,i) => {
+    const d = document.createElement('div');
+    d.className='insp-mem';
+    d.innerHTML=`<span class="insp-mem-idx">${i+1}.</span>${m}`;
+    list.appendChild(d);
+  });
+}
+
+// ============================================================
+// SIDEBAR
+// ============================================================
+function updateAgentCards(agents) {
+  const container = document.getElementById('agent-cards');
+  container.innerHTML = '';
+  for (const a of agents) {
+    const ll = gameState?.locations?.[a.current_location]?.label||a.current_location||'';
+    const d = document.createElement('div');
+    d.className='agent-card'; d.style.borderColor=a.color;
+    d.innerHTML=`
+      <div class="agent-dot" style="background:${a.color}"></div>
+      <div class="agent-info">
+        <div class="agent-name" style="color:${a.color}">${a.name} <span style="color:#CCC;font-size:9px">${a.occupation}</span></div>
+        <div class="agent-status">${a.status||'...'}</div>
+        <div class="agent-loc">${ll?'📍 '+ll:''} <span style="color:#CCBBAA;font-size:9px">· 记忆${a.memories_count||0}条</span></div>
+      </div>`;
+    container.appendChild(d);
+  }
+}
+function renderNeedBar(label, value, invert=false) {
+  const v = Math.max(0, Math.min(100, Number(value ?? 0)));
+  const good = invert ? v < 45 : v > 55;
+  const bad = invert ? v > 75 : v < 25;
+  const cls = bad ? 'bad' : good ? '' : 'warn';
+  return `<div class="need-row"><span class="need-label">${label}</span><span class="need-track"><span class="need-fill ${cls}" style="width:${v}%"></span></span></div>`;
+}
+
+function updateAgentCards(agents) {
+  const container = document.getElementById('agent-cards');
+  container.innerHTML = '';
+  for (const a of agents) {
+    const ll = gameState?.locations?.[a.current_location]?.label||a.current_location||'';
+    const bestFriend = Object.entries(a.relationships||{}).sort((x,y)=>y[1]-x[1])[0];
+    const friendText = bestFriend ? ` · 朋友 ${bestFriend[0]} ${bestFriend[1]}` : '';
+    const d = document.createElement('div');
+    d.className='agent-card'; d.style.borderColor=a.color;
+    d.innerHTML=`
+      <div class="agent-dot" style="background:${a.color}"></div>
+      <div class="agent-info">
+        <div class="agent-name" style="color:${a.color}">${a.name} <span style="color:#CCC;font-size:9px">${a.occupation}</span></div>
+        <div class="agent-status">${a.status||'...'}</div>
+        <div class="agent-thought">💭 ${a.thought||'...'}</div>
+        <div class="agent-loc">${ll?'📍 '+ll:''} <span style="color:#CCBBAA;font-size:9px">· 记忆${a.memories_count||0}条${friendText}</span></div>
+        <div class="need-bars">
+          ${renderNeedBar('心情', a.mood)}
+          ${renderNeedBar('饥饿', a.hunger, true)}
+          ${renderNeedBar('精力', a.energy)}
+          ${renderNeedBar('社交', a.social)}
+        </div>
+      </div>`;
+    container.appendChild(d);
+  }
+}
+
+let lastEvtSig = '';
+function updateLog(events) {
+  if (!events || !events.length) return;
+  // The server only sends the latest 50 events, so length is pinned at 50 and
+  // can't be used to detect change. Key off the newest event's identity instead.
+  const last = events[events.length - 1];
+  const sig = events.length + '|' + last.t + '|' + last.text;
+  if (sig === lastEvtSig) return;
+  lastEvtSig = sig;
+  const ll = document.getElementById('log-list');
+  ll.innerHTML = '';
+  for (const ev of events.slice(-80).reverse()) {
+    const d = document.createElement('div');
+    d.className='log-entry';
+    const cls  = ev.kind==='chat'?'log-chat':ev.kind==='meet'?'log-meet':ev.kind==='move'?'log-move':'log-info';
+    const icon = ev.kind==='chat'?'💬':ev.kind==='meet'?'✨':ev.kind==='move'?'🚶':'ℹ';
+    d.innerHTML=`<span class="log-time">${ev.t}</span><span class="log-text ${cls}">${icon} ${ev.text}</span>`;
+    ll.appendChild(d);
+  }
+}
+function applyUpdate(data) {
+  if (data.locations) gameState.locations = data.locations;
+  if (data.agents && gameState.agents) {
+    for (const na of data.agents) {
+      const ex = gameState.agents.find(a=>a.id===na.id);
+      if (ex) Object.assign(ex, na);
+      else gameState.agents.push(na);
+    }
+    gameState.agents = gameState.agents.filter(a => data.agents.some(na => na.id === a.id));
+  } else if (data.agents) gameState.agents = data.agents;
+  if (data.events) gameState.events = data.events;
+  if (data.paused !== undefined) { gameState.paused = data.paused; updatePauseButton(); }
+  if (data.time) document.getElementById('clock').textContent = data.time;
+  if (data.model || data.town_mood !== undefined) {
+    const mood = data.town_mood !== undefined ? ` · 小镇心情 ${data.town_mood}` : '';
+    document.getElementById('model-badge').textContent='model: '+(data.model||gameState.model||'?')+mood;
+  }
+  updateAgentCards(gameState.agents);
+  updateLog(gameState.events);
+  refreshInspector();
+}
+
+// ============================================================
+// WEBSOCKET
+// ============================================================
+function connect() {
+  // Guard: clear any pending reconnect timer and don't stack connections
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+
+  const proto = location.protocol==='https:'?'wss:':'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+  ws.onopen = () => {
+    document.getElementById('status-bar').textContent='已连接 ✓';
+    wsReconnectDelay = 3000;  // reset backoff on successful connect
+  };
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type==='state') {
+      gameState = msg.data;
+      if (!gameState.locations) gameState.locations = LOCATION_LABELS;
+      buildLocMap();
+      document.getElementById('model-badge').textContent='model: '+(gameState.model||'?')+(gameState.town_mood!==undefined?` · 小镇心情 ${gameState.town_mood}`:'');
+      document.getElementById('clock').textContent=gameState.time||'08:00';
+      updateAgentCards(gameState.agents);
+      updateLog(gameState.events);
+      updatePauseButton();
+    } else if (msg.type==='update' && gameState) {
+      applyUpdate(msg.data);
+    } else if (msg.type==='chat_reply') {
+      onChatReply(msg.data);
+    }
+  };
+  ws.onclose = () => {
+    const secs = Math.round(wsReconnectDelay / 1000);
+    document.getElementById('status-bar').textContent = `已断开 — ${secs}s 后重连…`;
+    wsReconnectTimer = setTimeout(() => {
+      wsReconnectDelay = Math.min(wsReconnectDelay * 1.5, 30000);
+      connect();
+    }, wsReconnectDelay);
+  };
+  ws.onerror = () => ws.close();
+}
+
+function wsSend(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify(obj)); return true; }
+  return false;
+}
+
+// ============================================================
+// PAUSE
+// ============================================================
+function togglePause() {
+  wsSend({type:'toggle_pause'});
+}
+function updatePauseButton() {
+  const btn = document.getElementById('pause-btn');
+  if (!btn) return;
+  const paused = !!(gameState && gameState.paused);
+  btn.textContent = paused ? '▶ 继续' : '⏸ 暂停';
+  btn.classList.toggle('paused', paused);
+}
+
+// ============================================================
+// CHAT WITH A CHARACTER (player ↔ AI resident)
+// ============================================================
+let currentChatAgent = null;
+const chatHistories = {};       // agentId -> [{role:'user'|'agent', text}]
+let chatAwaitingReply = false;
+
+function openChatFromInspector() {
+  if (selectedAgent) openChat(selectedAgent);
+}
+function openChat(agentId) {
+  const ag = gameState?.agents?.find(a => a.id === agentId);
+  if (!ag) return;
+  currentChatAgent = agentId;
+  if (!chatHistories[agentId]) chatHistories[agentId] = [];
+  const dot = document.getElementById('chat-dot');
+  const nm  = document.getElementById('chat-name');
+  dot.style.background = ag.color || '#5BBF7B';
+  nm.textContent = `与 ${ag.name} 对话`;
+  nm.style.color = ag.color || '#2E7D4F';
+  document.getElementById('chat-panel').classList.add('visible');
+  renderChat();
+  setTimeout(() => document.getElementById('chat-input').focus(), 50);
+}
+function closeChat() {
+  currentChatAgent = null;
+  document.getElementById('chat-panel').classList.remove('visible');
+}
+function renderChat() {
+  const box = document.getElementById('chat-msgs');
+  box.innerHTML = '';
+  const hist = chatHistories[currentChatAgent] || [];
+  if (!hist.length && !chatAwaitingReply) {
+    const h = document.createElement('div');
+    h.className = 'chat-hint';
+    h.textContent = '打个招呼，开始对话吧～';
+    box.appendChild(h);
+  }
+  for (const m of hist) {
+    const d = document.createElement('div');
+    d.className = 'chat-msg ' + (m.role === 'user' ? 'user' : 'agent');
+    d.textContent = m.text;
+    box.appendChild(d);
+  }
+  if (chatAwaitingReply) {
+    const t = document.createElement('div');
+    t.className = 'chat-msg typing';
+    t.textContent = '正在思考…';
+    box.appendChild(t);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+function sendChat() {
+  if (!currentChatAgent || chatAwaitingReply) return;
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const hist = chatHistories[currentChatAgent];
+  const priorHistory = hist.map(m => ({role:m.role, text:m.text}));
+  if (!wsSend({type:'user_chat', agent_id:currentChatAgent, text, history:priorHistory})) return;
+  hist.push({role:'user', text});
+  input.value = '';
+  chatAwaitingReply = true;
+  document.getElementById('chat-send').disabled = true;
+  renderChat();
+}
+function onChatReply(data) {
+  chatAwaitingReply = false;
+  document.getElementById('chat-send').disabled = false;
+  if (!data || !data.ok) { renderChat(); return; }
+  const hist = chatHistories[data.agent_id] || (chatHistories[data.agent_id] = []);
+  hist.push({role:'agent', text:data.text});
+  if (data.agent_id === currentChatAgent) renderChat();
+}
+
+// ============================================================
+// ADD-AGENT MODAL
+// ============================================================
+function openAddAgentModal() {
+  const sel = document.getElementById('f-home');
+  sel.innerHTML = '';
+  if (gameState && gameState.locations) {
+    Object.entries(gameState.locations).forEach(([key, loc]) => {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = loc.label || key;
+      if (key === 'apartment') opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+  document.getElementById('modal-msg').textContent = '';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-job').value = '';
+  document.getElementById('f-personality').value = '';
+  document.getElementById('add-agent-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-name').focus(), 100);
+}
+
+function closeAddAgentModal() {
+  document.getElementById('add-agent-overlay').classList.remove('open');
+}
+
+async function submitNewAgent() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) {
+    document.getElementById('modal-msg').textContent = '请输入姓名 ⚠';
+    return;
+  }
+  const body = {
+    name,
+    occupation: document.getElementById('f-job').value.trim() || '居民',
+    personality: document.getElementById('f-personality').value.trim()
+      || `${name}是一个友善开朗的小镇居民。`,
+    home: document.getElementById('f-home').value || 'apartment',
+    color: document.getElementById('f-color').value,
+    skin: document.getElementById('f-skin').value,
+    hair: document.getElementById('f-hair').value,
+  };
+  const btn = document.getElementById('modal-submit');
+  btn.disabled = true;
+  btn.textContent = '添加中…';
+  try {
+    const resp = await fetch('/api/add-agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.status === 'ok') {
+      document.getElementById('modal-msg').style.color = '#4CAF50';
+      document.getElementById('modal-msg').textContent = `✓ ${name} 已加入小镇！`;
+      setTimeout(() => closeAddAgentModal(), 900);
+    } else {
+      document.getElementById('modal-msg').style.color = '#f44336';
+      document.getElementById('modal-msg').textContent = '添加失败，请重试';
+    }
+  } catch (e) {
+    document.getElementById('modal-msg').style.color = '#f44336';
+    document.getElementById('modal-msg').textContent = '网络错误：' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '添加';
+  }
+}
+
+// ============================================================
+// HIT DETECTION
+// ============================================================
+// ============================================================
+// INIT
+// ============================================================
+(function () {
+  // Load sprites and tiles
+  loadSprites();
+  loadTiles();
+
+  // Setup canvas and event listeners using original setupCanvas()
+  setupCanvas();
+
+  // Wire up add-agent modal: click-outside closes, ESC closes
+  document.getElementById('add-agent-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('add-agent-overlay')) closeAddAgentModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeAddAgentModal();
+  });
+
+  // Start WebSocket and render loop
+  connect();
+  requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>友达世界 — 多Agent社会模拟</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#C8E8B0;
+  color:#3D2B1A;
+  font-family:'Courier New', monospace;
+  display:flex; flex-direction:column;
+  height:100vh; overflow:hidden;
+}
+#header {
+  background:linear-gradient(to bottom,#FF9F6A,#FF7844);
+  padding:8px 16px;
+  display:flex; align-items:center; gap:14px;
+  border-bottom:3px solid #CC5522;
+  flex-shrink:0;
+  box-shadow:0 2px 8px rgba(180,60,20,0.3);
+}
+#header h1 {
+  font-size:18px; color:#fff;
+  text-shadow:1px 1px 0 #AA3300, 2px 2px 0 rgba(0,0,0,0.18);
+  letter-spacing:2px;
+}
+#clock { font-size:22px; color:#FFF8E0; font-weight:bold; min-width:60px; text-shadow:1px 1px 0 #993300; }
+#model-badge {
+  font-size:11px;
+  background:rgba(255,255,255,0.22); color:#FFF8E0;
+  padding:3px 10px; border-radius:20px;
+  border:1px solid rgba(255,255,255,0.38);
+}
+#status-bar {
+  font-size:11px; color:rgba(255,255,255,0.85);
+  margin-left:auto;
+  background:rgba(0,0,0,0.15);
+  padding:2px 10px; border-radius:10px;
+}
+#main { display:flex; flex:1; overflow:hidden; }
+#canvas-wrap {
+  position:relative; flex-shrink:0;
+  background:#B8DCA0; overflow:hidden;
+  border-right:3px solid #90C070;
+}
+#gameCanvas { display:block; image-rendering:pixelated; image-rendering:crisp-edges; }
+#sidebar {
+  width:320px; flex-shrink:0;
+  display:flex; flex-direction:column;
+  background:#FFF8F0;
+  border-left:3px solid #FFCCAA;
+}
+#agents-panel {
+  padding:10px;
+  border-bottom:2px solid #FFCCAA;
+  overflow-y:auto; max-height:46%;
+}
+#agents-panel h2 { font-size:11px; color:#CC6633; margin-bottom:8px; letter-spacing:1px; }
+.agent-card {
+  background:#fff; border-radius:10px;
+  padding:7px 10px; margin-bottom:6px;
+  display:flex; align-items:center; gap:8px;
+  border:2px solid #FFCCAA;
+  box-shadow:0 2px 6px rgba(255,150,80,0.1), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+.agent-dot {
+  width:16px; height:16px; border-radius:50%; flex-shrink:0;
+  border:2px solid rgba(255,255,255,0.7);
+  box-shadow:0 1px 4px rgba(0,0,0,0.2);
+}
+.agent-info { flex:1; min-width:0; }
+.agent-name { font-size:12px; font-weight:bold; }
+.agent-status { font-size:10px; color:#999; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.agent-loc { font-size:10px; color:#66AACC; }
+#log-panel {
+  flex:1; display:flex; flex-direction:column;
+  overflow:hidden; padding:10px;
+}
+#log-panel h2 { font-size:11px; color:#CC6633; margin-bottom:6px; letter-spacing:1px; flex-shrink:0; }
+#log-list { flex:1; overflow-y:auto; font-size:10px; line-height:1.6; }
+#log-list::-webkit-scrollbar { width:4px; }
+#log-list::-webkit-scrollbar-thumb { background:#FFCCAA; border-radius:2px; }
+.log-entry {
+  padding:3px 0; border-bottom:1px solid #FFE8D0;
+  display:flex; gap:6px; align-items:flex-start;
+}
+.log-time { color:#BBAA99; flex-shrink:0; min-width:36px; }
+.log-text { word-break:break-all; }
+.log-meet { color:#FF8844; font-weight:bold; }
+.log-chat { color:#44AACC; }
+.log-move { color:#66BB44; }
+.log-info { color:#AAAACC; }
+#footer {
+  background:linear-gradient(to bottom,#FF9F6A,#FF8855);
+  border-top:2px solid #CC5522;
+  padding:4px 14px; font-size:10px;
+  color:rgba(255,255,255,0.85); flex-shrink:0;
+}
+#legend {
+  position:absolute; bottom:10px; left:10px;
+  background:rgba(255,255,255,0.90);
+  padding:8px 12px; border-radius:10px;
+  font-size:10px; pointer-events:none;
+  border:2px solid #FFCCAA;
+  box-shadow:0 2px 10px rgba(0,0,0,0.12);
+  color:#553322;
+}
+.leg-row { display:flex; align-items:center; gap:6px; margin:2px 0; }
+.leg-box { width:12px; height:12px; border-radius:3px; flex-shrink:0; border:1px solid rgba(0,0,0,0.15); }
+#agent-inspector {
+  display:none; position:absolute; z-index:200;
+  width:272px; max-height:420px;
+  flex-direction:column;
+  background:#FFFAF5;
+  border:2.5px solid #FF9966; border-radius:14px;
+  box-shadow:0 8px 32px rgba(180,80,30,0.22);
+  overflow:hidden;
+}
+#agent-inspector.visible { display:flex; }
+.insp-header {
+  display:flex; align-items:center; gap:8px;
+  padding:9px 12px;
+  background:linear-gradient(to bottom,#FFF0E6,#FFE4CC);
+  flex-shrink:0; border-bottom:2px solid #FFCCAA;
+}
+#insp-dot {
+  width:18px; height:18px; border-radius:50%; flex-shrink:0;
+  border:2px solid rgba(255,255,255,0.7);
+  box-shadow:0 1px 4px rgba(0,0,0,0.2);
+}
+.insp-title-block { flex:1; min-width:0; }
+#insp-name { font-size:14px; font-weight:bold; }
+#insp-job { font-size:10px; color:#AA7755; margin-top:1px; }
+#insp-close {
+  background:#FF9966; border:none; color:#fff;
+  font-size:13px; cursor:pointer; padding:2px 7px;
+  line-height:1; border-radius:8px; flex-shrink:0; font-weight:bold;
+}
+#insp-close:hover { background:#FF7744; }
+#insp-personality {
+  padding:8px 12px; font-size:10px; color:#776655;
+  line-height:1.6; border-bottom:1px solid #FFE0C8;
+  flex-shrink:0; font-style:italic;
+  background:rgba(255,240,220,0.35);
+}
+.insp-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:6px 12px; font-size:10px;
+  border-bottom:1px solid #FFE0C8; flex-shrink:0;
+}
+#insp-status { color:#44AA66; font-weight:bold; }
+#insp-loc { color:#6699CC; }
+.insp-section-title {
+  padding:7px 12px 4px; font-size:10px;
+  color:#CC6633; letter-spacing:1px; flex-shrink:0; font-weight:bold;
+}
+#insp-memories { flex:1; overflow-y:auto; padding:0 12px 10px; }
+#insp-memories::-webkit-scrollbar { width:4px; }
+#insp-memories::-webkit-scrollbar-thumb { background:#FFCCAA; border-radius:2px; }
+.insp-mem {
+  font-size:10px; color:#665544;
+  padding:5px 0; border-bottom:1px solid rgba(255,200,170,0.5);
+  line-height:1.5;
+}
+.insp-mem:last-child { border-bottom:none; }
+.insp-mem-idx { color:#FFAA77; font-size:9px; margin-right:3px; font-weight:bold; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>友达世界</h1>
+  <div id="clock">08:00</div>
+  <div id="model-badge">model: ...</div>
+  <div id="status-bar">连接中...</div>
+</div>
+
+<div id="main">
+  <div id="canvas-wrap">
+    <canvas id="gameCanvas"></canvas>
+    <div id="legend">
+      <div class="leg-row"><div class="leg-box" style="background:#7EC850;border-color:#5A9030"></div>草地</div>
+      <div class="leg-row"><div class="leg-box" style="background:#CFA882;border-color:#906040"></div>小路</div>
+      <div class="leg-row"><div class="leg-box" style="background:#4A90D0;border-color:#2060A0"></div>水池</div>
+      <div class="leg-row"><div class="leg-box" style="background:#4DC045;border-color:#2A8020"></div>树木</div>
+    </div>
+
+    <div id="agent-inspector">
+      <div class="insp-header">
+        <div id="insp-dot"></div>
+        <div class="insp-title-block">
+          <div id="insp-name"></div>
+          <div id="insp-job"></div>
+        </div>
+        <button id="insp-close" onclick="hideInspector()">✕</button>
+      </div>
+      <div id="insp-personality"></div>
+      <div class="insp-row">
+        <span id="insp-status"></span>
+        <span id="insp-loc"></span>
+      </div>
+      <div class="insp-section-title">▶ 最近记忆</div>
+      <div id="insp-memories"></div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div id="agents-panel">
+      <h2>▶ 居民状态</h2>
+      <div id="agent-cards"></div>
+    </div>
+    <div id="log-panel">
+      <h2>▶ 实时事件</h2>
+      <div id="log-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="footer">
+  按住拖拽视角 | 滚轮缩放 | 点击角色查看详情 — AI驱动多Agent社会模拟
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let gameState = null;
+let ws = null;
+let canvas, ctx;
+let TILE = 32;
+let camX = 0, camY = 0;
+let isDragging = false, hasDragged = false;
+let dragStart = {x:0,y:0}, camStart = {x:0,y:0};
+let animFrame = 0;
+let selectedAgent = null;
+
+// ============================================================
+// CANVAS SETUP
+// ============================================================
+function setupCanvas() {
+  canvas = document.getElementById('gameCanvas');
+  ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  const wrap = document.getElementById('canvas-wrap');
+  function resize() {
+    const sidebar = document.getElementById('sidebar');
+    const header  = document.getElementById('header');
+    const footer  = document.getElementById('footer');
+    const w = window.innerWidth  - sidebar.offsetWidth;
+    const h = window.innerHeight - header.offsetHeight - footer.offsetHeight;
+    wrap.style.width  = w + 'px';
+    wrap.style.height = h + 'px';
+    canvas.width  = w;
+    canvas.height = h;
+    clampCamera();
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  canvas.addEventListener('mousedown', e => {
+    isDragging = true; hasDragged = false;
+    dragStart = {x:e.clientX, y:e.clientY};
+    camStart  = {x:camX, y:camY};
+    canvas.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (isDragging) {
+      const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasDragged = true;
+      camX = camStart.x - dx; camY = camStart.y - dy;
+      clampCamera(); return;
+    }
+    if (!gameState?.agents) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const hitR = Math.max(18, TILE * 0.7);
+    const over = gameState.agents.some(a => {
+      const px = a.x * TILE - camX + TILE/2;
+      const py = a.y * TILE - camY + TILE/2;
+      return Math.hypot(mx-px, my-py) < hitR;
+    });
+    canvas.style.cursor = over ? 'pointer' : 'grab';
+  });
+  window.addEventListener('mouseup', () => { isDragging = false; canvas.style.cursor = 'grab'; });
+  canvas.style.cursor = 'grab';
+
+  canvas.addEventListener('click', e => {
+    if (hasDragged) return;
+    if (!gameState?.agents) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const hitR = Math.max(18, TILE * 0.7);
+    let hit = null;
+    for (const agent of gameState.agents) {
+      const px = agent.x * TILE - camX + TILE/2;
+      const py = agent.y * TILE - camY + TILE/2;
+      if (Math.hypot(mx-px, my-py) < hitR) { hit = agent; break; }
+    }
+    if (hit) showInspector(hit, e.clientX, e.clientY);
+    else hideInspector();
+  });
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const mx = e.offsetX, my = e.offsetY;
+    const wx = (camX + mx) / TILE, wy = (camY + my) / TILE;
+    TILE = Math.max(16, Math.min(64, TILE - e.deltaY * 0.05));
+    camX = wx * TILE - mx; camY = wy * TILE - my;
+    clampCamera();
+  }, {passive:false});
+}
+
+function clampCamera() {
+  if (!gameState) return;
+  const maxX = gameState.map_cols * TILE - canvas.width;
+  const maxY = gameState.map_rows * TILE - canvas.height;
+  camX = Math.max(0, Math.min(camX, Math.max(0, maxX)));
+  camY = Math.max(0, Math.min(camY, Math.max(0, maxY)));
+}
+
+// ============================================================
+// TILE DRAWING — Kairosoft style
+// ============================================================
+function drawTile(col, row, tileType) {
+  const x = Math.round(col * TILE - camX);
+  const y = Math.round(row * TILE - camY);
+  const t = TILE;
+  if (x+t < 0 || x > canvas.width || y+t < 0 || y > canvas.height) return;
+
+  const seed = (col * 1637 + row * 431) | 0;
+
+  switch (tileType) {
+    case 0: case 6: { // grass / flower grass
+      ctx.fillStyle = (col+row)%2===0 ? '#7EC850' : '#70BA48';
+      ctx.fillRect(x, y, t, t);
+      if (t >= 20) {
+        // darker grass tufts
+        if ((seed*7)%5 === 0) {
+          ctx.fillStyle = '#559030';
+          ctx.fillRect(x + (seed*11%Math.max(1,t-6))+3, y + t - Math.round(t*0.25) - 2, 1, Math.round(t*0.22));
+        }
+        // flowers
+        const hasFlower = tileType===6 ? seed%2===0 : seed%5===0;
+        if (hasFlower) {
+          const cols6 = ['#FF90B0','#FFE040','#FF6090','#AADDFF','#FFAA44'];
+          const fc = cols6[Math.abs(seed)%5];
+          const fx = x + (Math.abs(seed*11)%(t-8))+4;
+          const fy = y + (Math.abs(seed*17)%(t-10))+5;
+          if (t >= 28) {
+            ctx.fillStyle = fc;
+            ctx.fillRect(fx+1, fy,   1, 3);
+            ctx.fillRect(fx,   fy+1, 3, 1);
+            ctx.fillStyle = '#FFEE44';
+            ctx.fillRect(fx+1, fy+1, 1, 1);
+          } else {
+            ctx.fillStyle = fc;
+            ctx.fillRect(fx, fy, 2, 2);
+          }
+        }
+      }
+      break;
+    }
+    case 1: { // path — cobblestone
+      // Mortar base
+      ctx.fillStyle = '#A88058';
+      ctx.fillRect(x, y, t, t);
+      // Stone face
+      const sc = (col+row)%2===0 ? '#CFA882' : '#C49876';
+      ctx.fillStyle = sc;
+      ctx.fillRect(x+1, y+1, t-2, t-2);
+      // Top-left highlight
+      ctx.fillStyle = '#DEC09A';
+      ctx.fillRect(x+1, y+1, t-2, Math.max(1, Math.round(t*0.14)));
+      ctx.fillRect(x+1, y+1, Math.max(1, Math.round(t*0.1)), t-2);
+      // Bottom-right shadow
+      ctx.fillStyle = '#A07858';
+      ctx.fillRect(x+1, y+t-Math.round(t*0.12)-1, t-2, Math.max(1,Math.round(t*0.12)));
+      break;
+    }
+    case 2: { // building wall
+      ctx.fillStyle = '#EDD9B8';
+      ctx.fillRect(x, y, t, t);
+      // Top fascia (eave colour)
+      ctx.fillStyle = '#C4A070';
+      ctx.fillRect(x, y, t, Math.max(2, Math.round(t*0.2)));
+      // Horizontal mortar lines
+      ctx.fillStyle = '#D8C09A';
+      ctx.fillRect(x, y+Math.round(t*0.55), t, 1);
+      ctx.fillRect(x, y+Math.round(t*0.22), t, 1);
+      // Window
+      if (t >= 26) {
+        const ww = Math.round(t*0.28), wh = Math.round(t*0.28);
+        const wx = x + Math.round((t-ww)/2);
+        const wy = y + Math.round(t*0.35);
+        ctx.fillStyle = '#1E3A80';
+        ctx.fillRect(wx, wy, ww, wh);
+        ctx.fillStyle = '#E8D0A0';
+        ctx.fillRect(wx, wy+Math.round(wh/2)-1, ww, 2);
+        ctx.fillRect(wx+Math.round(ww/2)-1, wy, 2, wh);
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillRect(wx+2, wy+2, Math.round(ww*0.38), Math.round(wh*0.38));
+      }
+      break;
+    }
+    case 3: { // tree
+      ctx.fillStyle = '#4A9040';
+      ctx.fillRect(x, y, t, t);
+      const cw = Math.round(t*0.78), ch = Math.round(t*0.7);
+      const cx2 = x+Math.round((t-cw)/2), cy2 = y+Math.round(t*0.04);
+      ctx.fillStyle = '#4DC045';
+      ctx.fillRect(cx2, cy2, cw, ch);
+      ctx.fillStyle = '#72D860';
+      ctx.fillRect(cx2+Math.round(cw*0.08), cy2+Math.round(ch*0.07), Math.round(cw*0.42), Math.round(ch*0.36));
+      ctx.fillStyle = '#38A030';
+      ctx.fillRect(cx2+Math.round(cw*0.54), cy2+Math.round(ch*0.54), Math.round(cw*0.4), Math.round(ch*0.38));
+      const tw2 = Math.round(t*0.2), th2 = Math.round(t*0.28);
+      ctx.fillStyle = '#7A4820';
+      ctx.fillRect(x+Math.round((t-tw2)/2), y+t-th2, tw2, th2);
+      ctx.fillStyle = '#9A6040';
+      ctx.fillRect(x+Math.round((t-tw2)/2), y+t-th2, Math.round(tw2*0.35), th2);
+      break;
+    }
+    case 4: { // water — animated
+      ctx.fillStyle = '#4A90D0';
+      ctx.fillRect(x, y, t, t);
+      const wt = Date.now() / 900;
+      const ph1 = (wt + col*0.4 + row*0.25) % 1;
+      const ph2 = (wt*0.65 + col*0.3 + row*0.5 + 0.45) % 1;
+      ctx.fillStyle = '#5BAAE0';
+      ctx.fillRect(x, y+Math.round(t*ph1*0.55), t, Math.round(t*0.22));
+      ctx.fillStyle = '#3A7EC0';
+      ctx.fillRect(x, y+Math.round(t*ph2*0.55 + t*0.38), t, Math.round(t*0.18));
+      if (t >= 22 && Math.floor(wt*2.5 + col*3 + row*7)%5 === 0) {
+        const sx = x + Math.abs(seed*13)%(t-6)+3;
+        const sy = y + Math.round(t*(ph1*0.5+0.12));
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.fillRect(sx, sy, 2, 1);
+        ctx.fillRect(sx, sy, 1, 2);
+      }
+      break;
+    }
+    case 5: { // building floor
+      ctx.fillStyle = (col+row)%2===0 ? '#F0E4C8' : '#E8DCC0';
+      ctx.fillRect(x, y, t, t);
+      if (t >= 18) {
+        ctx.fillStyle = 'rgba(160,120,70,0.13)';
+        ctx.fillRect(x, y, t, 1);
+        ctx.fillRect(x, y, 1, t);
+      }
+      break;
+    }
+  }
+}
+
+function drawGrid() {
+  if (!gameState?.grid) return;
+  const grid = gameState.grid;
+  for (let r = 0; r < grid.length; r++)
+    for (let c = 0; c < grid[r].length; c++)
+      drawTile(c, r, grid[r][c]);
+}
+
+// ============================================================
+// LOCATION LABELS — pill-style
+// ============================================================
+function drawLocationLabels(locations) {
+  if (!locations || TILE < 18) return;
+  ctx.save();
+  const fs = Math.max(8, Math.round(TILE * 0.31));
+  ctx.font = `bold ${fs}px 'Courier New'`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const [, loc] of Object.entries(locations)) {
+    const cx = loc.center[0] * TILE - camX + TILE/2;
+    const cy = loc.center[1] * TILE - camY - 6;
+    if (cx < -90||cx > canvas.width+90||cy < -20||cy > canvas.height+20) continue;
+    const tw = ctx.measureText(loc.label).width;
+    const pw = tw+14, ph = fs+7;
+    roundRect(ctx, cx-pw/2, cy-ph/2, pw, ph, ph/2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fill();
+    ctx.strokeStyle = '#FF9966';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#CC5522';
+    ctx.fillText(loc.label, cx, cy);
+  }
+  ctx.restore();
+}
+
+// ============================================================
+// COLOR HELPERS
+// ============================================================
+function darken(hex, f) {
+  const n = parseInt(hex.slice(1),16);
+  return `rgb(${Math.round(((n>>16)&255)*f)},${Math.round(((n>>8)&255)*f)},${Math.round((n&255)*f)})`;
+}
+function lighten(hex, f) {
+  const n = parseInt(hex.slice(1),16);
+  return `rgb(${Math.min(255,Math.round(((n>>16)&255)*f))},${Math.min(255,Math.round(((n>>8)&255)*f))},${Math.min(255,Math.round((n&255)*f))})`;
+}
+
+// ============================================================
+// CHARACTER DRAWING — Kairosoft pixel-art style
+// ============================================================
+function drawCharacter(agent, time) {
+  const px = agent.x * TILE - camX + TILE/2;
+  const py = agent.y * TILE - camY + TILE/2;
+  if (px<-40||px>canvas.width+40||py<-40||py>canvas.height+40) return;
+
+  const s = Math.max(0.55, TILE/32);
+  const P = v => v * s;  // scale sprite-pixels → canvas-pixels
+
+  // Walk / idle animation
+  const isMoving = agent.current_location !== agent.target_location;
+  const speed = isMoving ? 300 : 700;
+  const walkPhase = (time / speed) % (Math.PI * 2);
+  const bounceAmp = isMoving ? P(1.8) : P(0.4);
+  const bounce    = Math.abs(Math.sin(walkPhase)) * bounceAmp;
+  const legSwing  = Math.sin(walkPhase) * (isMoving ? P(1.6) : P(0.3));
+
+  // Reference: cy = tile center; draw upward
+  const cx  = Math.round(px);
+  const cy  = Math.round(py - bounce);  // whole character bounces up
+
+  ctx.save();
+
+  // Shadow (stays on ground, no bounce)
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(Math.round(px), Math.round(py + P(10)), P(5.5), P(2), 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // ── LEGS ──
+  const legW = Math.round(P(3.8));
+  const legH = Math.round(P(7));
+  const legTop = Math.round(cy + P(2));
+  ctx.fillStyle = darken(agent.color, 0.58);
+  ctx.fillRect(Math.round(cx - P(4.5)), Math.round(legTop + legSwing), legW, legH);
+  ctx.fillRect(Math.round(cx + P(1)),   Math.round(legTop - legSwing), legW, legH);
+  // Shoe highlight
+  ctx.fillStyle = darken(agent.color, 0.4);
+  ctx.fillRect(Math.round(cx - P(4.5)), Math.round(legTop + legSwing + legH - P(2)), legW, Math.round(P(2)));
+  ctx.fillRect(Math.round(cx + P(1)),   Math.round(legTop - legSwing + legH - P(2)), legW, Math.round(P(2)));
+
+  // ── BODY ──
+  const bodyW = Math.round(P(10));
+  const bodyH = Math.round(P(9));
+  const bodyTop = Math.round(cy - P(7));
+  ctx.fillStyle = agent.color;
+  ctx.fillRect(cx - Math.round(bodyW/2), bodyTop, bodyW, bodyH);
+  // Shirt highlight stripe
+  ctx.fillStyle = lighten(agent.color, 1.35);
+  ctx.fillRect(cx - Math.round(bodyW/2), bodyTop, bodyW, Math.round(P(1.5)));
+  // Shirt pocket or badge (small detail)
+  ctx.fillStyle = lighten(agent.color, 1.2);
+  ctx.fillRect(cx + Math.round(P(1.5)), bodyTop + Math.round(P(2.5)), Math.round(P(2.5)), Math.round(P(2)));
+
+  // ── ARMS ──
+  const armW = Math.round(P(2.5));
+  const armH = Math.round(P(6.5));
+  ctx.fillStyle = darken(agent.color, 0.72);
+  ctx.fillRect(cx - Math.round(bodyW/2) - armW, Math.round(bodyTop + P(1) - legSwing*0.6), armW, armH);
+  ctx.fillRect(cx + Math.round(bodyW/2),          Math.round(bodyTop + P(1) + legSwing*0.6), armW, armH);
+  // Hand bumps
+  ctx.fillStyle = agent.skin;
+  ctx.fillRect(cx - Math.round(bodyW/2) - armW, Math.round(bodyTop + P(1) - legSwing*0.6 + armH - P(2)), armW, Math.round(P(2.5)));
+  ctx.fillRect(cx + Math.round(bodyW/2),          Math.round(bodyTop + P(1) + legSwing*0.6 + armH - P(2)), armW, Math.round(P(2.5)));
+
+  // ── HEAD ──
+  const headW = Math.round(P(10));
+  const headH = Math.round(P(9));
+  const headTop = Math.round(bodyTop - headH);
+  ctx.fillStyle = agent.skin;
+  ctx.fillRect(cx - Math.round(headW/2), headTop, headW, headH);
+
+  // ── HAIR ──
+  const hairH = Math.round(P(3.8));
+  ctx.fillStyle = agent.hair;
+  ctx.fillRect(cx - Math.round(headW/2) - Math.round(P(1)), headTop, headW + Math.round(P(2)), hairH);
+  // Side hair
+  ctx.fillRect(cx - Math.round(headW/2) - Math.round(P(1)), headTop, Math.round(P(2)), Math.round(headH*0.65));
+  ctx.fillRect(cx + Math.round(headW/2) - Math.round(P(1)), headTop, Math.round(P(2)), Math.round(headH*0.65));
+
+  // ── EYES ──
+  const eyeS = Math.max(1, Math.round(P(1.6)));
+  const eyeY = Math.round(headTop + hairH + P(1.5));
+  ctx.fillStyle = '#1A1020';
+  ctx.fillRect(Math.round(cx - P(3.5)), eyeY, eyeS*2, eyeS*2);
+  ctx.fillRect(Math.round(cx + P(1.2)), eyeY, eyeS*2, eyeS*2);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(Math.round(cx - P(3.5)) + eyeS, eyeY, eyeS, eyeS);
+  ctx.fillRect(Math.round(cx + P(1.2)) + eyeS, eyeY, eyeS, eyeS);
+
+  // ── BLUSH ──
+  ctx.fillStyle = 'rgba(255,140,120,0.62)';
+  const blushY = Math.round(eyeY + P(2.4));
+  ctx.fillRect(Math.round(cx - P(5.2)), blushY, Math.round(P(2.2)), Math.round(P(1.4)));
+  ctx.fillRect(Math.round(cx + P(3)),   blushY, Math.round(P(2.2)), Math.round(P(1.4)));
+
+  // ── SELECTION RING ──
+  if (agent.id === selectedAgent) {
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = Math.max(1.5, P(0.08)*20);
+    ctx.globalAlpha = 0.92;
+    ctx.beginPath();
+    ctx.arc(cx, headTop + Math.round(headH/2), headW * 0.85, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // ── TALKING PULSE ──
+  if (agent.chat_bubble) {
+    const pulse = 0.5 + 0.5*Math.abs(Math.sin(time/200));
+    ctx.strokeStyle = '#FF9F6A';
+    ctx.lineWidth = Math.max(1, P(0.06)*20);
+    ctx.globalAlpha = pulse;
+    ctx.beginPath();
+    ctx.arc(cx, headTop + Math.round(headH/2), headW * 1.0, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+
+  // ── NAME TAG (pill bubble) ──
+  if (TILE >= 18) {
+    ctx.save();
+    const nfs = Math.max(7, Math.round(P(9)));
+    ctx.font = `bold ${nfs}px 'Courier New'`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const tw2 = ctx.measureText(agent.name).width;
+    const nw = tw2 + 10, nh = nfs + 5;
+    const ny = Math.round(headTop - nh - P(2.5));
+    roundRect(ctx, cx - nw/2, ny, nw, nh, nh/2);
+    ctx.fillStyle = 'rgba(255,255,255,0.93)';
+    ctx.fill();
+    ctx.strokeStyle = agent.color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#333';
+    ctx.fillText(agent.name, cx, ny + nh/2);
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// CHAT BUBBLES — rounded, warm
+// ============================================================
+function drawChatBubbles(agents) {
+  for (const agent of agents) {
+    if (!agent.chat_bubble) continue;
+    const px = agent.x * TILE - camX + TILE/2;
+    const py = agent.y * TILE - camY + TILE/2;
+    if (px<-120||px>canvas.width+120||py<-80||py>canvas.height+80) continue;
+
+    const s = Math.max(0.55, TILE/32);
+    const headTop = py - s*16 - s*9;  // matches headTop in drawCharacter (approx, no bounce)
+
+    ctx.save();
+    const fs = Math.max(9, Math.round(10*s));
+    ctx.font = `${fs}px 'Courier New'`;
+
+    const maxW = 150;
+    const chars = agent.chat_bubble.split('');
+    let lines = [], cur = '';
+    for (const ch of chars) {
+      if (ctx.measureText(cur+ch).width > maxW) { lines.push(cur); cur=ch; }
+      else cur += ch;
+    }
+    if (cur) lines.push(cur);
+    lines = lines.slice(0,3);
+
+    const lineH = fs + 4;
+    const bw = Math.max(60, Math.max(...lines.map(l=>ctx.measureText(l).width)) + 18);
+    const bh = lines.length * lineH + 10;
+    const bx = px;
+    const by = headTop - 10;
+
+    const R = 8;
+    roundRect(ctx, bx-bw/2, by-bh, bw, bh, R);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fill();
+    ctx.strokeStyle = agent.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Tail
+    ctx.beginPath();
+    ctx.moveTo(bx-7, by-1);
+    ctx.lineTo(bx+7, by-1);
+    ctx.lineTo(bx, by+9);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fill();
+    // Tail border (sides only)
+    ctx.strokeStyle = agent.color;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(bx-7, by-1);
+    ctx.lineTo(bx, by+9);
+    ctx.moveTo(bx+7, by-1);
+    ctx.lineTo(bx, by+9);
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#222';
+    for (let i=0; i<lines.length; i++)
+      ctx.fillText(lines[i], bx, by-bh + 5 + i*lineH);
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// ROUNDED RECT HELPER
+// ============================================================
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+// ============================================================
+// RENDER LOOP
+// ============================================================
+function render(ts) {
+  requestAnimationFrame(render);
+  animFrame = ts;
+
+  if (!gameState) {
+    ctx.fillStyle = '#B8DCA0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#557744';
+    ctx.font = 'bold 16px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText('正在连接服务器...', canvas.width/2, canvas.height/2);
+    return;
+  }
+
+  // Map border / outside background
+  ctx.fillStyle = '#B0D898';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawGrid();
+  drawLocationLabels(gameState.locations);
+
+  const sorted = [...gameState.agents].sort((a,b)=>a.y-b.y);
+  for (const ag of sorted) drawCharacter(ag, ts);
+  drawChatBubbles(sorted);
+}
+
+// ============================================================
+// AGENT INSPECTOR
+// ============================================================
+function showInspector(agent, clientX, clientY) {
+  selectedAgent = agent.id;
+  const panel = document.getElementById('agent-inspector');
+  document.getElementById('insp-dot').style.background   = agent.color;
+  document.getElementById('insp-name').style.color       = agent.color;
+  document.getElementById('insp-name').textContent        = agent.name;
+  document.getElementById('insp-job').textContent         = agent.occupation;
+  document.getElementById('insp-personality').textContent = agent.personality || '';
+  document.getElementById('insp-status').textContent      = agent.status || '...';
+  const locLabel = gameState.locations?.[agent.current_location]?.label || agent.current_location || '';
+  document.getElementById('insp-loc').textContent = locLabel ? '📍 ' + locLabel : '';
+  const memCount = agent.memories_count || 0;
+  document.querySelector('#agent-inspector .insp-section-title').textContent = `▶ 最近记忆 (${memCount}条)`;
+  _renderMemories(agent.memories, memCount);
+  panel.classList.add('visible');
+  const wrap = document.getElementById('canvas-wrap');
+  const wr = wrap.getBoundingClientRect();
+  const pw=272, ph=420;
+  let lx = clientX - wr.left + 16, ly = clientY - wr.top - 40;
+  if (lx+pw > wrap.offsetWidth-6)  lx = wrap.offsetWidth-pw-6;
+  if (ly+ph > wrap.offsetHeight-6) ly = wrap.offsetHeight-ph-6;
+  lx = Math.max(4, lx); ly = Math.max(4, ly);
+  panel.style.left = lx+'px'; panel.style.top = ly+'px';
+}
+
+function hideInspector() {
+  selectedAgent = null;
+  document.getElementById('agent-inspector').classList.remove('visible');
+}
+
+function refreshInspector() {
+  if (!selectedAgent || !gameState?.agents) return;
+  const agent = gameState.agents.find(a=>a.id===selectedAgent);
+  if (!agent) return;
+  document.getElementById('insp-status').textContent = agent.status || '...';
+  const locLabel = gameState.locations?.[agent.current_location]?.label || agent.current_location || '';
+  document.getElementById('insp-loc').textContent = locLabel ? '📍 '+locLabel : '';
+  const memCount = agent.memories_count || 0;
+  document.querySelector('#agent-inspector .insp-section-title').textContent = `▶ 最近记忆 (${memCount}条)`;
+  _renderMemories(agent.memories, memCount);
+}
+
+function _renderMemories(mems, count) {
+  const list = document.getElementById('insp-memories');
+  list.innerHTML = '';
+  if (mems === undefined && count > 0) {
+    list.innerHTML = `<div class="insp-mem" style="color:#e94560">服务器未发送记忆数据（共${count}条），请重启服务器后刷新页面</div>`;
+    return;
+  }
+  const shown = mems ? [...mems].reverse().slice(0,10) : [];
+  if (shown.length === 0) {
+    list.innerHTML = '<div class="insp-mem" style="color:#BBAA99">暂无记忆</div>';
+    return;
+  }
+  shown.forEach((m,i) => {
+    const div = document.createElement('div');
+    div.className = 'insp-mem';
+    div.innerHTML = `<span class="insp-mem-idx">${i+1}.</span>${m}`;
+    list.appendChild(div);
+  });
+}
+
+// ============================================================
+// SIDEBAR
+// ============================================================
+function updateAgentCards(agents) {
+  const container = document.getElementById('agent-cards');
+  container.innerHTML = '';
+  for (const a of agents) {
+    const locLabel = gameState?.locations?.[a.current_location]?.label || a.current_location || '';
+    const card = document.createElement('div');
+    card.className = 'agent-card';
+    card.style.borderColor = a.color;
+    card.innerHTML = `
+      <div class="agent-dot" style="background:${a.color}"></div>
+      <div class="agent-info">
+        <div class="agent-name" style="color:${a.color}">${a.name} <span style="color:#BBB;font-size:9px">${a.occupation}</span></div>
+        <div class="agent-status">${a.status||'...'}</div>
+        <div class="agent-loc">${locLabel ? '📍 '+locLabel : ''} <span style="color:#CCBBAA;font-size:9px">· 记忆${a.memories_count||0}条</span></div>
+      </div>`;
+    container.appendChild(card);
+  }
+}
+
+let lastEventCount = 0;
+function updateLog(events) {
+  if (!events || events.length === lastEventCount) return;
+  lastEventCount = events.length;
+  const logList = document.getElementById('log-list');
+  logList.innerHTML = '';
+  const recent = events.slice(-80).reverse();
+  for (const ev of recent) {
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    const cls  = ev.kind==='chat'?'log-chat':ev.kind==='meet'?'log-meet':ev.kind==='move'?'log-move':'log-info';
+    const icon = ev.kind==='chat'?'💬':ev.kind==='meet'?'✨':ev.kind==='move'?'🚶':'ℹ';
+    div.innerHTML = `<span class="log-time">${ev.t}</span><span class="log-text ${cls}">${icon} ${ev.text}</span>`;
+    logList.appendChild(div);
+  }
+}
+
+function applyUpdate(data) {
+  if (data.locations) gameState.locations = data.locations;
+  if (data.agents && gameState.agents) {
+    for (const na of data.agents) {
+      const ex = gameState.agents.find(a=>a.id===na.id);
+      if (ex) Object.assign(ex, na);
+    }
+  } else if (data.agents) gameState.agents = data.agents;
+  if (data.events) gameState.events = data.events;
+  if (data.time) document.getElementById('clock').textContent = data.time;
+  updateAgentCards(gameState.agents);
+  updateLog(gameState.events);
+  refreshInspector();
+}
+
+// ============================================================
+// WEBSOCKET
+// ============================================================
+function connect() {
+  const proto = location.protocol==='https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+  ws.onopen = () => { document.getElementById('status-bar').textContent = '已连接 ✓'; };
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'state') {
+      gameState = msg.data;
+      if (!gameState.locations) gameState.locations = LOCATION_LABELS;
+      document.getElementById('model-badge').textContent = 'model: '+(gameState.model||'?');
+      document.getElementById('clock').textContent = gameState.time||'08:00';
+      updateAgentCards(gameState.agents);
+      updateLog(gameState.events);
+      camX = 15*TILE - canvas.width/2;
+      camY = 12*TILE - canvas.height/2;
+      clampCamera();
+    } else if (msg.type==='update' && gameState) {
+      applyUpdate(msg.data);
+    }
+  };
+  ws.onclose = () => {
+    document.getElementById('status-bar').textContent = '已断开 — 3秒后重连';
+    setTimeout(connect, 3000);
+  };
+  ws.onerror = () => { document.getElementById('status-bar').textContent = '连接错误'; };
+}
+
+const LOCATION_LABELS = {
+  cafe:        {label:'咖啡馆', center:[2,2]},
+  library:     {label:'图书馆', center:[10,2]},
+  house_alice: {label:'Alice家', center:[17,2]},
+  house_bob:   {label:'Bob家',   center:[23,2]},
+  house_carol: {label:'Carol家', center:[28,2]},
+  park:        {label:'公园',   center:[4,14]},
+  town_square: {label:'广场',   center:[15,12]},
+  office:      {label:'办公室', center:[25,14]},
+  house_diana: {label:'Diana家', center:[2,20]},
+  house_eve:   {label:'Eve家',   center:[8,20]},
+};
+
+window.onload = () => {
+  setupCanvas();
+  requestAnimationFrame(render);
+  connect();
+  if (!gameState) gameState = {agents:[], events:[], locations:LOCATION_LABELS};
+};
+</script>
+</body>
+</html>

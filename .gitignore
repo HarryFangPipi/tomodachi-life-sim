@@ -1,0 +1,29 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# ── Node (仅用于开发期的 Playwright 截图检查) ──
+node_modules/
+
+# ── 运行时产物 ──
+logs/
+debug.log
+screenshots/
+*.zip
+
+# ── 存档 / 用户数据（不入库，克隆后自动新建） ──
+data/
+
+# ── 动态生成的居民精灵：只保留 5 个默认角色，忽略新增居民的 ──
+static/sprites/*.png
+!static/sprites/alice.png
+!static/sprites/bob.png
+!static/sprites/carol.png
+!static/sprites/diana.png
+!static/sprites/eve.png
+
+# ── 其它 ──
+.env
+.claude/
+ref.jpeg
