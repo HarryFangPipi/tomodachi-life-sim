@@ -80,6 +80,10 @@ class Agent:
         self.chat_bubble = ""
         self.chat_bubble_time = 0
         self.memories: list[str] = [f"我是{self.name}，一名{self.occupation}。"]
+        # Persistent player↔this-character chat log (kept separate from `memories`
+        # so what the player tells the character is never crowded out by the
+        # character's own autonomous activity, and survives reloads via the save).
+        self.player_log: list[dict] = []
         self.talking_to = None  # type: Optional[str]
         self.decision_cooldown = random.randint(3, 10)
         self.thought_cooldown = random.randint(6, 18)
@@ -111,6 +115,7 @@ class Agent:
             "personality": self.personality,
             "memories": self.memories[-10:],
             "memories_count": len(self.memories),
+            "player_log": self.player_log[-20:],
             "mood": self.mood,
             "hunger": self.hunger,
             "energy": self.energy,
@@ -129,6 +134,7 @@ class Agent:
             "chat_bubble": self.chat_bubble,
             "chat_bubble_time": self.chat_bubble_time,
             "memories": list(self.memories),
+            "player_log": list(self.player_log),
             "decision_cooldown": self.decision_cooldown,
             "thought_cooldown": self.thought_cooldown,
             "thought": self.thought,
@@ -145,6 +151,7 @@ class Agent:
         self.chat_bubble = data.get("chat_bubble", "")
         self.chat_bubble_time = float(data.get("chat_bubble_time", 0))
         self.memories = list(data.get("memories", self.memories))[-30:]
+        self.player_log = [m for m in data.get("player_log", []) if isinstance(m, dict)][-40:]
         self.decision_cooldown = int(data.get("decision_cooldown", self.decision_cooldown))
         self.thought_cooldown = int(data.get("thought_cooldown", self.thought_cooldown))
         self.mood = int(data.get("mood", self.mood))
@@ -352,17 +359,23 @@ class Agent:
         return status.strip() or self.fallback_status(location_label)
 
     async def generate_user_reply(self, user_text: str, history: Optional[list] = None) -> str:
-        """以角色身份回复正在与之聊天的玩家（访客）。支持多轮上下文。"""
+        """以角色身份回复正在与之聊天的玩家（访客）。
+
+        上下文优先用服务端持久化的 `player_log`（跨会话保留、且不被日常记忆冲掉），
+        客户端传来的 history 仅作回退。这样角色能"记住访客告诉过它的事"。"""
         loc_label = LOCATIONS.get(self.current_location, {}).get("label", "某处")
-        recent = "; ".join(self.memories[-3:])
         system = (
             f"你是{self.name}，{self.occupation}。性格：{self.personality}。\n"
-            f"你现在在{loc_label}。近期记忆：{recent}。\n"
-            f"一位访客正在和你聊天。请始终以{self.name}的身份、用口语化的中文回复，"
-            f"符合你的性格，1-2句话，不超过50字。不要加引号，不要写旁白或动作描述。"
+            f"你现在在{loc_label}。\n"
+            f"下面的对话记录是你和这位访客以前聊过的内容——请牢牢记住其中访客告诉过你的"
+            f"信息（名字、喜好、约定、要求等），回答时要体现出你记得这些。\n"
+            f"请始终以{self.name}的身份、用口语化的中文回复，符合你的性格，"
+            f"1-2句话，不超过50字。不要加引号，不要写旁白或动作描述。"
         )
         messages = [{"role": "system", "content": system}]
-        for h in (history or [])[-6:]:
+        # 优先用持久化的玩家对话日志；为空时回退到客户端传来的 history
+        log = self.player_log[-24:] if self.player_log else (history or [])[-12:]
+        for h in log:
             role = "user" if h.get("role") == "user" else "assistant"
             content = str(h.get("text", "")).strip()[:200]
             if content:

@@ -316,10 +316,20 @@ class GameEngine:
             logger.warning(f"[WARN] user_chat failed {agent.name}: {e}")
             reply = "（……我现在有点走神了，等会儿再聊好吗？）"
         agent.set_bubble(reply)
-        agent.add_memory(f"一位访客对我说：{text}；我回答：{reply}")
+        # Append this exchange to the persistent player log (kept ≤40 entries) so
+        # the character keeps remembering it across turns and across restarts.
+        agent.player_log.append({"role": "user", "text": text})
+        agent.player_log.append({"role": "agent", "text": reply})
+        if len(agent.player_log) > 40:
+            agent.player_log = agent.player_log[-40:]
         # Chatting lifts the resident's social/mood a little
         agent.social = min(100, agent.social + 6)
         agent.mood = min(100, agent.mood + 3)
         self.add_event(f"你 → {agent.name}：{text}", "chat", agent.id)
         self.add_event(f"{agent.name}：{reply}", "chat", agent.id)
+        # Persist immediately so a refresh/restart doesn't lose what you just told them
+        try:
+            self.save(silent=True)
+        except Exception:
+            pass
         return {"ok": True, "agent_id": agent_id, "text": reply}

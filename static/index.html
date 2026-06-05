@@ -2818,7 +2818,11 @@ function openChat(agentId) {
   const ag = gameState?.agents?.find(a => a.id === agentId);
   if (!ag) return;
   currentChatAgent = agentId;
-  if (!chatHistories[agentId]) chatHistories[agentId] = [];
+  // Seed from the server-side persistent log so past conversation reappears
+  // after a refresh and the character visibly "remembers" what you told it.
+  if (!chatHistories[agentId] || chatHistories[agentId].length === 0) {
+    chatHistories[agentId] = (ag.player_log || []).map(m => ({role: m.role, text: m.text}));
+  }
   const dot = document.getElementById('chat-dot');
   const nm  = document.getElementById('chat-name');
   dot.style.background = ag.color || '#5BBF7B';
