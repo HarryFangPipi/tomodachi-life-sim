@@ -10,6 +10,9 @@ AGENT_CONFIGS = [
         "id": "alice",
         "name": "Alice",
         "personality": "Creative artist. Loves painting and meeting people. Cheerful and expressive.",
+        "background": "A small-town artist who fills notebooks with sketches of neighbors, buildings, and passing moods.",
+        "goals": ["find visual inspiration", "make people feel seen", "turn ordinary moments into art"],
+        "speaking_rules": ["warm and expressive", "often notices colors or details", "asks playful follow-up questions"],
         "occupation": "Artist",
         "home": "house_alice",
         "color": "#FF6B6B",
@@ -20,6 +23,9 @@ AGENT_CONFIGS = [
         "id": "bob",
         "name": "Bob",
         "personality": "Introverted programmer. Loves coffee and tech. Thoughtful but socially awkward.",
+        "background": "A software engineer who moved to town for a quieter life and still thinks in systems and edge cases.",
+        "goals": ["solve practical problems", "avoid awkward misunderstandings", "find calm places to focus"],
+        "speaking_rules": ["concise and thoughtful", "can sound a little shy", "uses concrete observations instead of big emotions"],
         "occupation": "Software Engineer",
         "home": "house_bob",
         "color": "#4FC3F7",
@@ -30,6 +36,9 @@ AGENT_CONFIGS = [
         "id": "carol",
         "name": "Carol",
         "personality": "Energetic teacher. Loves reading and helping others. Very talkative.",
+        "background": "A teacher who remembers what each person is learning, worrying about, or secretly proud of.",
+        "goals": ["encourage others", "share useful knowledge", "keep conversations lively"],
+        "speaking_rules": ["bright and encouraging", "often explains or reframes things", "asks caring check-in questions"],
         "occupation": "Teacher",
         "home": "house_carol",
         "color": "#FFB74D",
@@ -40,6 +49,9 @@ AGENT_CONFIGS = [
         "id": "diana",
         "name": "Diana",
         "personality": "Ambitious chef. Passionate about food and culture. Bold and confident.",
+        "background": "A chef building her reputation through bold dishes, sharp instincts, and generous hospitality.",
+        "goals": ["create memorable food", "push people to be braver", "bring culture and flavor into daily life"],
+        "speaking_rules": ["confident and vivid", "can challenge vague opinions", "often relates feelings to taste or craft"],
         "occupation": "Chef",
         "home": "house_diana",
         "color": "#CE93D8",
@@ -50,6 +62,9 @@ AGENT_CONFIGS = [
         "id": "eve",
         "name": "Eve",
         "personality": "Quiet librarian. Loves books and nature. Observant and wise.",
+        "background": "A librarian who knows the town's quiet rhythms and notices the small truths people leave between words.",
+        "goals": ["understand people gently", "protect quiet spaces", "connect moments to stories or nature"],
+        "speaking_rules": ["soft-spoken and observant", "uses calm language", "offers thoughtful questions rather than quick advice"],
         "occupation": "Librarian",
         "home": "house_eve",
         "color": "#80CBC4",
@@ -58,17 +73,26 @@ AGENT_CONFIGS = [
     },
 ]
 
+
+
 class Agent:
-    def __init__(self, config: dict, model: str):
+    def __init__(self, config: dict, model: str, npc_model: str = ""):
         self.id = config["id"]
         self.name = config["name"]
         self.personality = config["personality"]
         self.occupation = config["occupation"]
+        self.background = str(config.get("background") or self._default_background())
+        self.goals = self._clean_text_list(config.get("goals"), self._default_goals())
+        self.speaking_rules = self._clean_text_list(
+            config.get("speaking_rules"),
+            self._default_speaking_rules(),
+        )
         self.home = config["home"]
         self.color = config["color"]
         self.skin = config["skin"]
         self.hair = config["hair"]
-        self.model = model
+        self.model = model               # 大模型：玩家对话
+        self.npc_model = npc_model or model  # 小模型：NPC 自主行为
 
         loc = LOCATIONS[self.home]
         self.x = float(loc["center"][0])
@@ -93,9 +117,41 @@ class Agent:
         self.energy = random.randint(62, 92)
         self.fun = random.randint(45, 78)
         self.social = random.randint(35, 72)
+        self.money = random.randint(90, 180)
         self.relationships: dict[str, int] = {}
         self.thought = self.fallback_thought()
         self.thought_time = time.time()
+
+    def _clean_text_list(self, value, fallback: list[str]) -> list[str]:
+        if isinstance(value, str):
+            items = [part.strip() for part in value.replace("；", ";").split(";")]
+        elif isinstance(value, list):
+            items = [str(part).strip() for part in value]
+        else:
+            items = []
+        cleaned = [item for item in items if item]
+        return cleaned[:5] or fallback
+
+    def _default_background(self) -> str:
+        return f"{self.name} is a {self.occupation} living in this small town."
+
+    def _default_goals(self) -> list[str]:
+        return ["过好今天", "和镇上的人保持自然的关系", "做符合自己性格的小事"]
+
+    def _default_speaking_rules(self) -> list[str]:
+        return ["口语化", "符合自己的职业和性格", "不要突然变成旁白或解释设定"]
+
+    def role_card_prompt(self) -> str:
+        goals = "；".join(self.goals)
+        rules = "；".join(self.speaking_rules)
+        return (
+            f"你是{self.name}（{self.occupation}）。\n"
+            f"性格风格：{self.personality}。\n"
+            f"人物背景：{self.background}\n"
+            f"当前目标：{goals}\n"
+            f"说话规则：{rules}\n"
+            f"请始终保持这个角色，不要跳出角色或解释设定。"
+        )
 
     def to_dict(self):
         return {
@@ -113,6 +169,9 @@ class Agent:
             "target_location": self.target_location,
             "occupation": self.occupation,
             "personality": self.personality,
+            "background": self.background,
+            "goals": list(self.goals),
+            "speaking_rules": list(self.speaking_rules),
             "memories": self.memories[-10:],
             "memories_count": len(self.memories),
             "player_log": self.player_log[-20:],
@@ -121,6 +180,7 @@ class Agent:
             "energy": self.energy,
             "fun": self.fun,
             "social": self.social,
+            "money": self.money,
             "relationships": dict(sorted(self.relationships.items())),
             "thought": self.thought,
             "thought_time": self.thought_time,
@@ -145,13 +205,35 @@ class Agent:
     def apply_save_dict(self, data: dict):
         self.x = float(data.get("x", self.x))
         self.y = float(data.get("y", self.y))
+        # Restore which house this resident lives in. Without this, a default
+        # named resident (Alice/Bob/Carol/Diana/Eve) who gets moved into a
+        # custom-built house via the map editor would silently snap back to
+        # their original hardcoded home on the next server restart, since
+        # those agents are reconstructed from AGENT_CONFIGS first and this
+        # method is what layers the saved state on top.
+        saved_home = data.get("home")
+        if saved_home and saved_home in LOCATIONS:
+            self.home = saved_home
+        elif saved_home and saved_home not in LOCATIONS:
+            # The saved home (e.g. a removed custom house) no longer exists.
+            self.home = "apartment" if "apartment" in LOCATIONS else self.home
         self.target_location = data.get("target_location", self.target_location)
         self.current_location = data.get("current_location", self.current_location)
+        if self.target_location not in LOCATIONS:
+            self.target_location = self.home
+        if self.current_location not in LOCATIONS:
+            self.current_location = self.home
         self.status = "在镇上闲逛"
         self.chat_bubble = data.get("chat_bubble", "")
         self.chat_bubble_time = float(data.get("chat_bubble_time", 0))
         self.memories = list(data.get("memories", self.memories))[-30:]
         self.player_log = [m for m in data.get("player_log", []) if isinstance(m, dict)][-40:]
+        self.background = str(data.get("background") or self.background or self._default_background())
+        self.goals = self._clean_text_list(data.get("goals"), self.goals or self._default_goals())
+        self.speaking_rules = self._clean_text_list(
+            data.get("speaking_rules"),
+            self.speaking_rules or self._default_speaking_rules(),
+        )
         self.decision_cooldown = int(data.get("decision_cooldown", self.decision_cooldown))
         self.thought_cooldown = int(data.get("thought_cooldown", self.thought_cooldown))
         self.mood = int(data.get("mood", self.mood))
@@ -159,17 +241,30 @@ class Agent:
         self.energy = int(data.get("energy", self.energy))
         self.fun = int(data.get("fun", self.fun))
         self.social = int(data.get("social", self.social))
+        self.money = int(data.get("money", self.money))
         self.relationships = {str(k): int(v) for k, v in data.get("relationships", {}).items()}
         self.thought = data.get("thought") or self.fallback_thought()
         self.thought_time = float(data.get("thought_time", time.time()))
 
     def add_memory(self, mem: str):
         self.memories.append(mem)
-        if len(self.memories) > 30:
-            self.memories = self.memories[-30:]
+        if len(self.memories) > 40:
+            self.memories = self.memories[-40:]
+
+    def _rel_desc(self, other_id: str) -> str:
+        v = self.relationships.get(other_id, 0)
+        if v < 10:  return "第一次见面"
+        if v < 30:  return "点头之交"
+        if v < 55:  return "普通朋友"
+        if v < 75:  return "好朋友"
+        return "挚友"
+
+    def _shared_memories(self, other_name: str) -> str:
+        shared = [m for m in self.memories if other_name in m]
+        return shared[-1] if shared else ""
 
     def set_bubble(self, text: str):
-        self.chat_bubble = text[:60]
+        self.chat_bubble = text[:100]
         self.chat_bubble_time = time.time()
 
     def set_thought(self, text: str):
@@ -210,6 +305,21 @@ class Agent:
             return random.choice(["town_square", "park", "cafe"])
         if self.fun < 30:
             return random.choice(["park", "library", "town_square"])
+        profile_text = " ".join([self.personality, self.background, *self.goals, *self.speaking_rules]).lower()
+        preference_pool: list[str] = []
+        preference_rules = [
+            (("art", "inspiration", "creative", "画", "艺术", "灵感"), ["park", "town_square", "cafe"]),
+            (("book", "story", "library", "quiet", "书", "故事", "安静"), ["library", "park"]),
+            (("food", "chef", "taste", "cafe", "吃", "料理", "味道"), ["cafe", "town_square"]),
+            (("tech", "code", "focus", "system", "program", "技术", "编程"), ["office", "library"]),
+            (("help", "teach", "encourage", "care", "帮助", "照顾", "鼓励"), ["town_square", "office", "library"]),
+            (("social", "people", "friend", "lively", "朋友", "热闹", "社交"), ["town_square", "cafe", "park"]),
+        ]
+        for keywords, locations in preference_rules:
+            if any(keyword in profile_text for keyword in keywords):
+                preference_pool.extend([loc for loc in locations if loc in LOCATIONS])
+        if preference_pool and random.random() < 0.35:
+            return random.choice(preference_pool)
         if self.occupation.lower() in ("teacher", "software engineer") and 9 <= hour <= 17:
             return "office"
         if self.occupation.lower() == "librarian" and 9 <= hour <= 18:
@@ -274,18 +384,25 @@ class Agent:
         ])
 
     async def generate_thought(self, game_time: str, other_name: str = "") -> str:
-        recent = "; ".join(self.memories[-3:])
+        recent = "；".join(self.memories[-4:])
         loc_label = LOCATIONS.get(self.current_location, {}).get("label", "某处")
-        needs = f"心情{self.mood}, 饥饿{self.hunger}, 精力{self.energy}, 娱乐{self.fun}, 社交{self.social}"
-        relation_hint = f"刚刚互动对象：{other_name}\n" if other_name else ""
+        # Build a natural state hint
+        state_hints = []
+        if self.hunger > 70: state_hints.append("有点饿")
+        if self.energy < 28: state_hints.append("有些疲倦")
+        if self.social < 25: state_hints.append("想见见朋友")
+        if self.fun < 28: state_hints.append("想找点乐子")
+        if self.mood > 75: state_hints.append("心情不错")
+        state_line = "当前状态：" + "，".join(state_hints) + "。\n" if state_hints else ""
+        after_chat = f"刚和{other_name}聊过天。\n" if other_name else ""
         prompt = (
-            f"你是{self.name}（{self.occupation}），性格：{self.personality}。\n"
-            f"现在时间：{game_time}，地点：{loc_label}。{relation_hint}"
-            f"需求状态：{needs}。\n"
-            f"近期记忆：{recent}\n"
-            f"写一句中文内心活动，像游戏角色的想法，1句，15-35字，不要加引号，不要说出口："
+            f"{self.role_card_prompt()}\n"
+            f"现在{game_time}，你在{loc_label}。\n"
+            f"{state_line}{after_chat}"
+            f"近期经历：{recent}\n"
+            f"只输出一句内心独白（15-35字，无引号，无emoji，无旁白，纯中文）："
         )
-        thought = await ollama.generate(prompt, model=self.model, max_tokens=50)
+        thought = await ollama.generate(prompt, model=self.npc_model, max_tokens=60)
         return thought.strip() or self.fallback_thought(other_name)
     async def decide_next_location(self, game_time: str) -> str:
         need_choice = self.choose_need_location(game_time)
@@ -297,14 +414,14 @@ class Agent:
         loc_keys = ", ".join(LOCATIONS.keys())
 
         prompt = (
-            f"你是{self.name}，{self.occupation}。性格：{self.personality}\n"
+            f"{self.role_card_prompt()}\n"
             f"现在时间：{game_time}。你在{LOCATIONS[self.current_location]['label']}。\n"
             f"近期记忆：{recent_mems}\n"
             f"可去的地方（用英文key回答）：{loc_keys}\n"
             f"根据你的性格和时间，你最想去哪里？只回答一个英文key，不要其他内容。"
         )
 
-        result = await ollama.generate(prompt, model=self.model, max_tokens=15)
+        result = await ollama.generate(prompt, model=self.npc_model, max_tokens=15)
         result = result.strip().lower().split()[0] if result.strip() else ""
         # remove punctuation
         result = "".join(c for c in result if c.isalnum() or c == "_")
@@ -312,50 +429,57 @@ class Agent:
             return result
         return need_choice
 
-    async def generate_reply(self, other_name: str, other_said: str, other_personality: str) -> str:
-        recent = "; ".join(self.memories[-3:])
-        prompt = (
-            f"你是{self.name}（{self.occupation}），性格：{self.personality}。\n"
-            f"你和{other_name}在{LOCATIONS.get(self.current_location, {}).get('label','某处')}相遇。\n"
-            f"近期记忆：{recent}\n"
-            f'{other_name}说："{other_said}"\n'
-            f"请用中文简短回复（1-2句话，不超过50字，不要加引号）："
+    async def generate_reply(self, other_name: str, history: list[dict],
+                             other_personality: str, other_id: str = "") -> str:
+        """基于完整对话历史生成回复，history 是 [{"role":"user/assistant","content":...}] 列表。"""
+        rel_desc = self._rel_desc(other_id)
+        shared = self._shared_memories(other_name)
+        shared_line = f"你们上次的记忆：{shared}\n" if shared else ""
+        recent = "；".join(self.memories[-3:])
+        loc_label = LOCATIONS.get(self.current_location, {}).get("label", "某处")
+        mood_hint = (
+            "你现在心情很好。" if self.mood > 70
+            else "你今天有点疲惫。" if self.energy < 30
+            else ""
         )
-        reply = await ollama.generate(prompt, model=self.model, max_tokens=60)
-        reply = reply.strip()
-        if reply:
-            return reply
-        choices = [
-            f"{other_name}，这个主意不错。",
-            "我刚好也在想这件事。",
-            "下次一起去广场看看吧。",
-            "听起来很有意思！",
-        ]
-        return random.choice(choices)
+        system = (
+            f"{self.role_card_prompt()}\n"
+            f"你和{other_name}（{other_personality}）在{loc_label}，你们是{rel_desc}。\n"
+            f"{shared_line}"
+            f"你的近期经历：{recent}\n"
+            f"{mood_hint}\n"
+            f"【规则】只输出{self.name}说的一句话（1-2句，不超过50字）。"
+            f"禁止：emoji、括号动作描述、引号、元评论、英文、乱码。"
+            f"要求：紧扣上文话题，口语化，可以追问或分享感受。"
+        )
+        messages = [{"role": "system", "content": system}] + history
+        reply = await ollama.chat(messages, model=self.npc_model, max_tokens=100)
+        return reply.strip() or ""
 
-    async def generate_greeting(self, other_name: str, location_label: str) -> str:
+    async def generate_greeting(self, other_name: str, location_label: str,
+                                other_id: str = "") -> str:
+        rel_desc = self._rel_desc(other_id)
+        shared = self._shared_memories(other_name)
+        shared_line = f"上次见面：{shared}\n" if shared else ""
+        hour = int(self.thought_time % 86400 // 3600) if False else 0  # placeholder
+        time_hint = ""
         prompt = (
-            f"你是{self.name}（{self.occupation}），性格：{self.personality}。\n"
-            f"你在{location_label}遇到了{other_name}。\n"
-            f"说一句简短的中文问候或开场白（1句话，不超过30字，不要引号）："
+            f"{self.role_card_prompt()}\n"
+            f"你在{location_label}遇到了{other_name}，你们是{rel_desc}。\n"
+            f"{shared_line}"
+            f"只输出一句中文打招呼的话（不超过25字，无引号，无emoji，无旁白）："
         )
-        greeting = await ollama.generate(prompt, model=self.model, max_tokens=40)
-        greeting = greeting.strip()
-        if greeting:
-            return greeting
-        return random.choice([
-            f"{other_name}，今天过得怎么样？",
-            f"好巧啊，{other_name}！",
-            "这里气氛真不错。",
-            "要不要一起逛逛？",
-        ])
+        greeting = await ollama.generate(prompt, model=self.npc_model, max_tokens=60)
+        return greeting.strip() or ""
 
     async def generate_action_status(self, location_label: str) -> str:
+        mood_hint = "心情愉快，" if self.mood > 70 else "有些心不在焉，" if self.mood < 40 else ""
         prompt = (
-            f"你是{self.name}（{self.occupation}）在{location_label}。性格：{self.personality}。\n"
-            f'用中文描述你正在做什么（5-10个字，如"喝咖啡看报纸"）：'
+            f"{self.role_card_prompt()}\n"
+            f"你{mood_hint}正在{location_label}。\n"
+            f"用5-10个中文字描述你此刻在做的具体事情（如\"翻阅一本旧画册\"），不加引号："
         )
-        status = await ollama.generate(prompt, model=self.model, max_tokens=20)
+        status = await ollama.generate(prompt, model=self.npc_model, max_tokens=25)
         return status.strip() or self.fallback_status(location_label)
 
     async def generate_user_reply(self, user_text: str, history: Optional[list] = None) -> str:
@@ -365,7 +489,7 @@ class Agent:
         客户端传来的 history 仅作回退。这样角色能"记住访客告诉过它的事"。"""
         loc_label = LOCATIONS.get(self.current_location, {}).get("label", "某处")
         system = (
-            f"你是{self.name}，{self.occupation}。性格：{self.personality}。\n"
+            f"{self.role_card_prompt()}\n"
             f"你现在在{loc_label}。\n"
             f"下面的对话记录是你和这位访客以前聊过的内容——请牢牢记住其中访客告诉过你的"
             f"信息（名字、喜好、约定、要求等），回答时要体现出你记得这些。\n"
@@ -381,13 +505,5 @@ class Agent:
             if content:
                 messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": str(user_text).strip()[:200]})
-        reply = await ollama.chat(messages, model=self.model, max_tokens=90)
-        reply = " ".join((reply or "").strip().split())
-        if reply:
-            return reply[:80]
-        return random.choice([
-            "嗯，我在听呢。",
-            "这个想法挺有意思的。",
-            "你说得对，我也这么觉得。",
-            "很高兴你来找我聊天！",
-        ])
+        reply = await ollama.chat(messages, model=self.model, max_tokens=120)
+        return " ".join((reply or "").strip().split())[:100]

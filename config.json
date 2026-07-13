@@ -1,17 +1,14 @@
 {
   "host": "0.0.0.0",
   "port": 8001,
-  "ollama_url": "http://localhost:11434",
+  "ollama_url": "http://192.168.0.15:11434",
   "preferred_models": [
-    "qwen2.5vl",
-    "qwen2.5",
-    "llama3.2:3b",
-    "llama3.2",
-    "qwen3",
+    "qwen3.6",
     "gpt-oss:20b",
-    "mistral",
-    "phi3",
-    "gemma2:2b"
+    "deepseek-r1",
+    "qwen3",
+    "llama3.2",
+    "mistral"
   ],
   "tick_seconds": 0.8,
   "game_hours_per_tick": 0.05,
@@ -20,4 +17,3 @@
   "autoload_save": true,
   "autosave_seconds": 20
 }
-

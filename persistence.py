@@ -17,6 +17,9 @@ def _agent_config_from_save(data: dict[str, Any]) -> dict[str, Any]:
         "id": data["id"],
         "name": data.get("name", data["id"]),
         "personality": data.get("personality", "友善的小镇居民。"),
+        "background": data.get("background", ""),
+        "goals": data.get("goals", []),
+        "speaking_rules": data.get("speaking_rules", []),
         "occupation": data.get("occupation", "居民"),
         "home": home,
         "color": data.get("color", "#FF6B6B"),
@@ -31,6 +34,7 @@ def build_save_data(engine) -> dict[str, Any]:
         "tick_count": engine.tick_count,
         "game_hour": engine.game_hour,
         "model": engine.model,
+        "town_funds": getattr(engine, "town_funds", 3500),
         "events": engine.events[-200:],
         "agents": [agent.to_save_dict() for agent in engine.agents],
     }
@@ -52,6 +56,7 @@ def load_game(engine, path: Path) -> bool:
     data = json.loads(path.read_text(encoding="utf-8"))
     engine.tick_count = int(data.get("tick_count", 0))
     engine.game_hour = float(data.get("game_hour", 8.0)) % 24
+    engine.town_funds = int(data.get("town_funds", getattr(engine, "town_funds", 3500)))
     engine.events = list(data.get("events", []))[-200:]
 
     agents = []

@@ -8,12 +8,14 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pathlib import Path
 from game import GameEngine
 from config import load_config
 
 CONFIG = load_config()
+BUILD_HOUSE_COST = 450
+REMOVE_HOUSE_REFUND = 120
 
 app = FastAPI(title="Tomodachi World")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -50,11 +52,27 @@ async def get_state_api():
 class NewAgentRequest(BaseModel):
     name: str
     personality: str
+    background: str = ""
+    goals: list[str] = Field(default_factory=list)
+    speaking_rules: list[str] = Field(default_factory=list)
     occupation: str = "居民"
     color: str = "#FF6B6B"
     skin: str = "#FFCC80"
     hair: str = "#8B4513"
     home: str = "apartment"
+
+class BuildHouseRequest(BaseModel):
+    block_row: int
+    block_col: int
+    style: str = "cabin"
+    occupant_agent_id: str = ""
+
+class AssignResidentRequest(BaseModel):
+    house_key: str
+    occupant_agent_id: str = ""  # empty string = vacate
+
+class RemoveHouseRequest(BaseModel):
+    house_key: str
 
 @app.post("/api/add-agent")
 async def add_agent(req: NewAgentRequest):
@@ -72,9 +90,12 @@ async def add_agent(req: NewAgentRequest):
         agent_id = f"{base_id}_{n}"; n += 1
     home = req.home if req.home in LOCATIONS else ("apartment" if "apartment" in LOCATIONS else "town_square")
     cfg = {"id": agent_id, "name": name, "personality": req.personality.strip() or f"{name}是友善的小镇居民。",
+           "background": req.background.strip(),
+           "goals": req.goals,
+           "speaking_rules": req.speaking_rules,
            "occupation": req.occupation, "home": home,
            "color": req.color, "skin": req.skin, "hair": req.hair}
-    new_agent = Agent(cfg, game.model)
+    new_agent = Agent(cfg, game.model, npc_model=game.npc_model)
     game.agents.append(new_agent)
     game.add_event(f"新居民 {name} 加入了小镇！", "info")
     game.save(silent=True)
@@ -100,6 +121,114 @@ async def remove_agent(agent_id: str):
             agent.relationships.pop(agent_id, None)
         game.add_event(f"{removed.name} 离开了小镇", "info")
         game.save(silent=True)
+    await broadcast({"type": "state", "data": game.get_state()})
+    return JSONResponse({"status": "ok"})
+
+@app.post("/api/map/build-house")
+async def build_house_api(req: BuildHouseRequest):
+    """Visual map editor: build a prefab house on a vacant lot or on the
+    ghost ring beyond the current town bounds (auto-expanding the map),
+    optionally moving an existing resident in right away."""
+    import world as world_module
+    if req.style not in world_module.HOUSE_STYLES:
+        return JSONResponse({"status": "bad_request", "error": "invalid style"}, status_code=400)
+    if game.town_funds < BUILD_HOUSE_COST:
+        return JSONResponse({
+            "status": "insufficient_funds",
+            "error": f"小镇资金不足，需要 ${BUILD_HOUSE_COST}",
+            "town_funds": game.town_funds,
+            "cost": BUILD_HOUSE_COST,
+        }, status_code=400)
+
+    occupant = None
+    if req.occupant_agent_id:
+        occupant = next((a for a in game.agents if a.id == req.occupant_agent_id), None)
+        if occupant is None:
+            return JSONResponse({"status": "not_found", "error": "agent not found"}, status_code=404)
+
+    label = f"{occupant.name}家" if occupant else "空房"
+    try:
+        key = world_module.build_house(req.block_row, req.block_col, req.style, label)
+    except ValueError as e:
+        return JSONResponse({"status": "bad_request", "error": str(e)}, status_code=400)
+
+    game.grid = world_module.build_map()
+    game.town_funds = max(0, game.town_funds - BUILD_HOUSE_COST)
+
+    if occupant is not None:
+        old_home = occupant.home
+        occupant.home = key
+        occupant.target_location = key
+        if old_home != key and world_module.get_kind(old_home) == "house":
+            try:
+                world_module.set_house_label(old_home, "空房")
+            except Exception:
+                pass
+
+    game.add_event(f"新建筑落成：{label}（-${BUILD_HOUSE_COST}）", "money")
+    game.save(silent=True)
+    await broadcast({"type": "state", "data": game.get_state()})
+    return JSONResponse({"status": "ok", "house_key": key, "label": label})
+
+@app.post("/api/map/assign-resident")
+async def assign_resident_api(req: AssignResidentRequest):
+    """Move a resident into (or out of) an already-built custom house."""
+    import world as world_module
+    if world_module.get_kind(req.house_key) != "house":
+        return JSONResponse({"status": "bad_request", "error": "not a custom house"}, status_code=400)
+
+    for a in game.agents:
+        if a.home == req.house_key:
+            fallback = "apartment" if "apartment" in world_module.LOCATIONS else next(iter(world_module.LOCATIONS))
+            a.home = fallback
+            if a.target_location == req.house_key:
+                a.target_location = fallback
+
+    if req.occupant_agent_id:
+        agent = next((a for a in game.agents if a.id == req.occupant_agent_id), None)
+        if agent is None:
+            return JSONResponse({"status": "not_found"}, status_code=404)
+        old_home = agent.home
+        agent.home = req.house_key
+        agent.target_location = req.house_key
+        if old_home != req.house_key and world_module.get_kind(old_home) == "house":
+            try:
+                world_module.set_house_label(old_home, "空房")
+            except Exception:
+                pass
+        world_module.set_house_label(req.house_key, f"{agent.name}家")
+        game.add_event(f"{agent.name} 搬进了新家", "info")
+    else:
+        world_module.set_house_label(req.house_key, "空房")
+
+    game.save(silent=True)
+    await broadcast({"type": "state", "data": game.get_state()})
+    return JSONResponse({"status": "ok"})
+
+@app.post("/api/map/remove-house")
+async def remove_house_api(req: RemoveHouseRequest):
+    """Bulldoze a previously-built custom house (default town buildings can't be removed)."""
+    import world as world_module
+    try:
+        pos = world_module.remove_house(req.house_key)
+    except ValueError as e:
+        return JSONResponse({"status": "bad_request", "error": str(e)}, status_code=400)
+    if pos is None:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+
+    fallback = "apartment" if "apartment" in world_module.LOCATIONS else next(iter(world_module.LOCATIONS))
+    for a in game.agents:
+        if a.home == req.house_key:
+            a.home = fallback
+        if a.target_location == req.house_key:
+            a.target_location = fallback
+        if a.current_location == req.house_key:
+            a.current_location = fallback
+
+    game.grid = world_module.build_map()
+    game.town_funds += REMOVE_HOUSE_REFUND
+    game.add_event(f"一栋房子被拆除了（回收 +${REMOVE_HOUSE_REFUND}）", "money")
+    game.save(silent=True)
     await broadcast({"type": "state", "data": game.get_state()})
     return JSONResponse({"status": "ok"})
 

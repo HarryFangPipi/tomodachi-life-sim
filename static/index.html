@@ -72,6 +72,7 @@ body {
 .log-meet { color:#D86A28; font-weight:bold; }
 .log-chat { color:#3088B0; }
 .log-move { color:#5AA838; }
+.log-money { color:#B98218; font-weight:bold; }
 .log-info { color:#8888A0; }
 #footer {
   background:linear-gradient(to bottom,#F28B5B,#DF7046);
@@ -105,6 +106,10 @@ body {
 #insp-close { background:#FF9966; border:none; color:#fff; font-size:13px; cursor:pointer; padding:2px 7px; line-height:1; border-radius:8px; flex-shrink:0; font-weight:bold; }
 #insp-close:hover { background:#FF7744; }
 #insp-personality { padding:8px 12px; font-size:10px; color:#776655; line-height:1.6; border-bottom:1px solid #FFE0C8; flex-shrink:0; font-style:italic; background:rgba(255,240,220,.35); }
+#insp-profile { padding:7px 12px; font-size:10px; color:#6B5A48; line-height:1.45; border-bottom:1px solid #FFE0C8; flex-shrink:0; background:#FFF8EF; }
+.profile-line { margin-top:3px; }
+.profile-line:first-child { margin-top:0; }
+.profile-label { color:#C46A3A; font-weight:bold; }
 #insp-thought { padding:7px 12px; font-size:11px; color:#B45F36; line-height:1.45; border-bottom:1px solid #FFE0C8; flex-shrink:0; background:#FFF3E8; }
 .insp-row { display:flex; justify-content:space-between; align-items:center; padding:6px 12px; font-size:10px; border-bottom:1px solid #FFE0C8; flex-shrink:0; }
 #insp-status { color:#44AA66; font-weight:bold; }
@@ -176,7 +181,7 @@ body {
 #add-agent-overlay.open { display:flex; }
 #add-agent-modal {
   background:#FFFAF5; border:2.5px solid #FF9966; border-radius:16px;
-  padding:20px 22px; width:320px; max-width:95vw;
+  padding:20px 22px; width:340px; max-width:95vw; max-height:90vh; overflow-y:auto;
   box-shadow:0 12px 40px rgba(180,80,30,.28); font-family:'Courier New',monospace;
 }
 #add-agent-modal h3 {
@@ -210,6 +215,44 @@ body {
 #modal-cancel { background:#D0C0A8; color:#3D2B1A; }
 #modal-submit { background:linear-gradient(to bottom,#FF9F6A,#FF7844); color:#fff; }
 #modal-msg { font-size:10px; text-align:center; margin-top:6px; min-height:14px; color:#CC5522; }
+
+/* ── 建造模式 ─────────────────────────────────── */
+#build-mode-btn {
+  font-size:13px; background:rgba(255,255,255,.28); color:#fff;
+  border:1.5px solid rgba(255,255,255,.55); border-radius:20px;
+  padding:3px 12px; cursor:pointer; font-family:inherit; font-weight:bold;
+  letter-spacing:1px; transition:background .15s;
+}
+#build-mode-btn:hover { background:rgba(255,255,255,.45); }
+#build-mode-btn.active { background:#5BBF7B; border-color:#3FA862; }
+#gameCanvas.build-mode { cursor:crosshair; }
+
+#build-house-overlay, #house-manage-overlay {
+  display:none; position:fixed; inset:0; z-index:900;
+  background:rgba(60,30,10,.45); align-items:center; justify-content:center;
+}
+#build-house-overlay.open, #house-manage-overlay.open { display:flex; }
+#build-house-modal, #house-manage-modal {
+  background:#FFFAF5; border:2.5px solid #5BBF7B; border-radius:16px;
+  padding:20px 22px; width:320px; max-width:95vw;
+  box-shadow:0 12px 40px rgba(40,120,60,.28); font-family:'Courier New',monospace;
+}
+#build-house-modal h3, #house-manage-modal h3 {
+  font-size:14px; color:#2E7D4F; margin-bottom:14px;
+  text-align:center; letter-spacing:1px;
+}
+.style-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+.style-swatch {
+  width:46px; height:46px; border-radius:10px; cursor:pointer;
+  border:3px solid transparent; display:flex; align-items:center; justify-content:center;
+  font-size:9px; color:#fff; text-align:center; text-shadow:0 1px 2px rgba(0,0,0,.4);
+  transition:transform .1s, border-color .1s;
+}
+.style-swatch:hover { transform:scale(1.06); }
+.style-swatch.selected { border-color:#3D2B1A; transform:scale(1.06); }
+#house-manage-modal .modal-btns { margin-top:10px; }
+#bh-remove-btn { background:#D85A42; color:#fff; }
+
 @media (max-width: 760px) {
   body { min-width:0; }
   #header {
@@ -219,6 +262,7 @@ body {
   #clock { font-size:18px; min-width:52px; }
   #model-badge { font-size:10px; max-width:150px; white-space:normal; line-height:1.25; }
   #add-agent-btn { padding:3px 10px; font-size:12px; }
+  #build-mode-btn { padding:3px 10px; font-size:12px; }
   #status-bar { margin-left:0; font-size:10px; }
   #main { flex-direction:column; }
   #canvas-wrap {
@@ -250,7 +294,48 @@ body {
   <div id="model-badge">model: ...</div>
   <button id="pause-btn" onclick="togglePause()">⏸ 暂停</button>
   <button id="add-agent-btn" onclick="openAddAgentModal()">＋ 新居民</button>
+  <button id="build-mode-btn" onclick="toggleBuildMode()">🏗 建造模式</button>
   <div id="status-bar">连接中...</div>
+</div>
+
+<!-- 建造房屋弹窗 -->
+<div id="build-house-overlay" onclick="if(event.target===this)closeBuildHouseModal()">
+  <div id="build-house-modal">
+    <h3>🏗 建造新房屋</h3>
+    <div class="form-row">
+      <label>房屋样式</label>
+      <div class="style-row" id="bh-style-row"></div>
+    </div>
+    <div id="bh-cost" class="form-row" style="font-size:10px;color:#7A5A2A;text-align:center;"></div>
+    <div class="form-row">
+      <label>入住居民（可留空，之后再安排）</label>
+      <select id="bh-occupant"><option value="">空置（稍后安排）</option></select>
+    </div>
+    <div class="modal-btns">
+      <button id="bh-cancel" onclick="closeBuildHouseModal()">取消</button>
+      <button id="bh-submit" onclick="submitBuildHouse()">建造 ✓</button>
+    </div>
+    <div id="bh-msg" class="form-row" style="font-size:10px;text-align:center;min-height:14px;color:#CC5522;margin:6px 0 0;"></div>
+  </div>
+</div>
+
+<!-- 房屋管理弹窗（已建好的自建房屋） -->
+<div id="house-manage-overlay" onclick="if(event.target===this)closeHouseManageModal()">
+  <div id="house-manage-modal">
+    <h3 id="hm-title">🏠 房屋管理</h3>
+    <div class="form-row">
+      <label>当前住户</label>
+      <select id="hm-occupant"><option value="">空置</option></select>
+    </div>
+    <div class="modal-btns">
+      <button id="hm-cancel" onclick="closeHouseManageModal()">取消</button>
+      <button id="hm-submit" onclick="submitAssignResident()">保存 ✓</button>
+    </div>
+    <div class="modal-btns">
+      <button id="bh-remove-btn" onclick="submitRemoveHouse()">🔨 拆除房屋</button>
+    </div>
+    <div id="hm-msg" class="form-row" style="font-size:10px;text-align:center;min-height:14px;color:#CC5522;margin:6px 0 0;"></div>
+  </div>
 </div>
 
 <!-- 添加居民弹窗 -->
@@ -268,6 +353,18 @@ body {
     <div class="form-row">
       <label>性格描述</label>
       <textarea id="f-personality" placeholder="例：开朗的音乐家，热爱即兴创作，喜欢和大家分享音乐。"></textarea>
+    </div>
+    <div class="form-row">
+      <label>人物背景</label>
+      <textarea id="f-background" placeholder="例：曾在各地街头演出，最近搬来小镇寻找新的创作灵感。"></textarea>
+    </div>
+    <div class="form-row">
+      <label>当前目标（换行或分号分隔）</label>
+      <textarea id="f-goals" placeholder="例：结识新朋友；写出一首新歌；让大家放松下来"></textarea>
+    </div>
+    <div class="form-row">
+      <label>说话规则（换行或分号分隔）</label>
+      <textarea id="f-speaking-rules" placeholder="例：语气轻快；经常用音乐作比喻；会主动追问对方感受"></textarea>
     </div>
     <div class="form-row">
       <label>初始住所</label>
@@ -316,6 +413,7 @@ body {
         <button id="insp-close" onclick="hideInspector()">✕</button>
       </div>
       <div id="insp-personality"></div>
+      <div id="insp-profile"></div>
       <div id="insp-thought"></div>
       <div class="insp-row">
         <span id="insp-status"></span>
@@ -373,6 +471,10 @@ let wsReconnectTimer = null;
 let wsReconnectDelay = 3000;  // ms; doubles on each failure, capped at 30 s
 let camInitialized = false;
 let animTs = 0;
+let buildMode = false;       // 🏗 map editor toggle
+let pendingBlock = null;     // {br,bc} awaiting build-house submission
+let currentHouseKey = null;  // house key open in the manage modal
+let selectedStyle = 'cabin';
 const spriteSheets = {};   // id → HTMLImageElement
 const agentDir    = {};    // id → 0 (SW) | 1 (SE)
 const tileImages  = {};    // name → HTMLImageElement
@@ -576,6 +678,21 @@ function isoDiamond(sx, sy, fill, stroke, lw) {
   ctx.closePath();
   if (fill)   { ctx.fillStyle = fill; ctx.fill(); }
   if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw||0.6; ctx.stroke(); }
+}
+
+// Pull custom-house colors from gameState.locations into LOC_BASE/FLOOR_C so
+// player-built houses render in their chosen color instead of the gray
+// fallback. Default locations already have entries and are left untouched.
+function syncLocColors() {
+  if (!gameState?.locations) return;
+  for (const [key, loc] of Object.entries(gameState.locations)) {
+    if (loc.kind !== 'house') continue;
+    if (loc.color) {
+      LOC_BASE[key] = loc.color;
+      if (!FLOOR_C[key]) FLOOR_C[key] = loc.color;
+    }
+    if (LOC_H[key] === undefined) LOC_H[key] = 1.25;
+  }
 }
 
 // ============================================================
@@ -2497,6 +2614,7 @@ function render(ts) {
   // Sort characters by isometric depth (x+y) for painter's order
   const sorted = [...gameState.agents].sort((a,b) => (a.x+a.y)-(b.x+b.y));
   drawGrid(sorted, ts);
+  drawBuildOverlay();
   drawChatBubbles(sorted);
   drawLocationLabels(gameState.locations, sorted);
 }
@@ -2555,12 +2673,18 @@ function setupCanvas() {
   window.addEventListener('mouseup', () => { isDragging=false; canvas.style.cursor='grab'; });
   canvas.style.cursor = 'grab';
 
-  // Click to inspect
+  // Click to inspect (or, in build mode, click a block to build/manage)
   canvas.addEventListener('click', e => {
     if (hasDragged) return;
-    if (!gameState?.agents) return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+
+    if (buildMode) {
+      handleBuildModeClick(mx, my);
+      return;
+    }
+
+    if (!gameState?.agents) return;
     const hitR = Math.max(18, TILE_W*0.4);
     let hit = null;
     for (const ag of gameState.agents) {
@@ -2596,6 +2720,7 @@ function showInspector(agent, clientX, clientY) {
   document.getElementById('insp-name').textContent        = agent.name;
   document.getElementById('insp-job').textContent         = agent.occupation;
   document.getElementById('insp-personality').textContent = agent.personality||'';
+  renderProfileCard(agent);
   document.getElementById('insp-thought').textContent     = agent.thought ? `💭 ${agent.thought}` : '💭 ...';
   document.getElementById('insp-status').textContent      = agent.status||'...';
   const ll = gameState.locations?.[agent.current_location]?.label||agent.current_location||'';
@@ -2621,6 +2746,8 @@ function refreshInspector() {
   if (!selectedAgent||!gameState?.agents) return;
   const ag = gameState.agents.find(a=>a.id===selectedAgent);
   if (!ag) return;
+  document.getElementById('insp-personality').textContent = ag.personality||'';
+  renderProfileCard(ag);
   document.getElementById('insp-thought').textContent = ag.thought ? `💭 ${ag.thought}` : '💭 ...';
   document.getElementById('insp-status').textContent = ag.status||'...';
   const ll = gameState.locations?.[ag.current_location]?.label||ag.current_location||'';
@@ -2628,6 +2755,39 @@ function refreshInspector() {
   const mc = ag.memories_count||0;
   document.querySelector('#agent-inspector .insp-section-title').textContent = `▶ 最近记忆 (${mc}条)`;
   _renderMemories(ag.memories, mc);
+}
+function moneyText(value) {
+  return `$${Math.max(0, Math.round(Number(value ?? 0)))}`;
+}
+function updateModelBadge(data) {
+  const state = data || gameState || {};
+  const mood = state.town_mood !== undefined ? ` · 小镇心情 ${state.town_mood}` : '';
+  const funds = state.town_funds !== undefined ? ` · 资金 ${moneyText(state.town_funds)}` : '';
+  document.getElementById('model-badge').textContent = 'model: '+(state.model||gameState?.model||'?')+mood+funds;
+}
+function renderProfileCard(agent) {
+  const box = document.getElementById('insp-profile');
+  box.innerHTML = '';
+  const rows = [];
+  rows.push(['钱包', moneyText(agent.money)]);
+  if (agent.background) rows.push(['背景', agent.background]);
+  if (Array.isArray(agent.goals) && agent.goals.length) rows.push(['目标', agent.goals.slice(0,3).join('；')]);
+  if (Array.isArray(agent.speaking_rules) && agent.speaking_rules.length) rows.push(['说话', agent.speaking_rules.slice(0,3).join('；')]);
+  if (!rows.length) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = '';
+  for (const [label, text] of rows) {
+    const row = document.createElement('div');
+    row.className = 'profile-line';
+    const prefix = document.createElement('span');
+    prefix.className = 'profile-label';
+    prefix.textContent = `${label}：`;
+    row.appendChild(prefix);
+    row.appendChild(document.createTextNode(text));
+    box.appendChild(row);
+  }
 }
 function _renderMemories(mems, count) {
   const list = document.getElementById('insp-memories');
@@ -2689,7 +2849,7 @@ function updateAgentCards(agents) {
         <div class="agent-name" style="color:${a.color}">${a.name} <span style="color:#CCC;font-size:9px">${a.occupation}</span></div>
         <div class="agent-status">${a.status||'...'}</div>
         <div class="agent-thought">💭 ${a.thought||'...'}</div>
-        <div class="agent-loc">${ll?'📍 '+ll:''} <span style="color:#CCBBAA;font-size:9px">· 记忆${a.memories_count||0}条${friendText}</span></div>
+        <div class="agent-loc">${ll?'📍 '+ll:''} <span style="color:#CCBBAA;font-size:9px">· ${moneyText(a.money)} · 记忆${a.memories_count||0}条${friendText}</span></div>
         <div class="need-bars">
           ${renderNeedBar('心情', a.mood)}
           ${renderNeedBar('饥饿', a.hunger, true)}
@@ -2715,14 +2875,23 @@ function updateLog(events) {
   for (const ev of events.slice(-80).reverse()) {
     const d = document.createElement('div');
     d.className='log-entry';
-    const cls  = ev.kind==='chat'?'log-chat':ev.kind==='meet'?'log-meet':ev.kind==='move'?'log-move':'log-info';
-    const icon = ev.kind==='chat'?'💬':ev.kind==='meet'?'✨':ev.kind==='move'?'🚶':'ℹ';
+    const cls  = ev.kind==='chat'?'log-chat':ev.kind==='meet'?'log-meet':ev.kind==='move'?'log-move':ev.kind==='money'?'log-money':'log-info';
+    const icon = ev.kind==='chat'?'💬':ev.kind==='meet'?'✨':ev.kind==='move'?'🚶':ev.kind==='money'?'$':'ℹ';
     d.innerHTML=`<span class="log-time">${ev.t}</span><span class="log-text ${cls}">${icon} ${ev.text}</span>`;
     ll.appendChild(d);
   }
 }
 function applyUpdate(data) {
-  if (data.locations) gameState.locations = data.locations;
+  // Note: regular per-tick "update" messages never change the grid/blocks
+  // (those only arrive via a full "state" message, which already calls
+  // buildLocMap()) — so this just keeps cheap reference fields in sync,
+  // it does not re-run the 900+ tile sort.
+  if (data.locations) { gameState.locations = data.locations; syncLocColors(); }
+  if (data.blocks) gameState.blocks = data.blocks;
+  if (data.block_bounds) gameState.block_bounds = data.block_bounds;
+  if (data.house_styles) gameState.house_styles = data.house_styles;
+  if (data.town_funds !== undefined) gameState.town_funds = data.town_funds;
+  if (data.economy) gameState.economy = data.economy;
   if (data.agents && gameState.agents) {
     for (const na of data.agents) {
       const ex = gameState.agents.find(a=>a.id===na.id);
@@ -2734,10 +2903,7 @@ function applyUpdate(data) {
   if (data.events) gameState.events = data.events;
   if (data.paused !== undefined) { gameState.paused = data.paused; updatePauseButton(); }
   if (data.time) document.getElementById('clock').textContent = data.time;
-  if (data.model || data.town_mood !== undefined) {
-    const mood = data.town_mood !== undefined ? ` · 小镇心情 ${data.town_mood}` : '';
-    document.getElementById('model-badge').textContent='model: '+(data.model||gameState.model||'?')+mood;
-  }
+  if (data.model || data.town_mood !== undefined || data.town_funds !== undefined) updateModelBadge(data);
   updateAgentCards(gameState.agents);
   updateLog(gameState.events);
   refreshInspector();
@@ -2762,8 +2928,9 @@ function connect() {
     if (msg.type==='state') {
       gameState = msg.data;
       if (!gameState.locations) gameState.locations = LOCATION_LABELS;
+      syncLocColors();
       buildLocMap();
-      document.getElementById('model-badge').textContent='model: '+(gameState.model||'?')+(gameState.town_mood!==undefined?` · 小镇心情 ${gameState.town_mood}`:'');
+      updateModelBadge(gameState);
       document.getElementById('clock').textContent=gameState.time||'08:00';
       updateAgentCards(gameState.agents);
       updateLog(gameState.events);
@@ -2884,6 +3051,242 @@ function onChatReply(data) {
 }
 
 // ============================================================
+// MAP EDITOR (🏗 build mode)
+// ============================================================
+function toggleBuildMode() {
+  buildMode = !buildMode;
+  document.getElementById('build-mode-btn').classList.toggle('active', buildMode);
+  canvas.classList.toggle('build-mode', buildMode);
+  if (buildMode) hideInspector();
+}
+
+let _hintTimer = null;
+function showBuildHint(text) {
+  const sb = document.getElementById('status-bar');
+  if (_hintTimer) clearTimeout(_hintTimer);
+  const prev = ws && ws.readyState === WebSocket.OPEN ? '已连接 ✓' : sb.textContent;
+  sb.textContent = text;
+  _hintTimer = setTimeout(() => { sb.textContent = prev; }, 1600);
+}
+
+// Inverse of isoToScreen: screen px -> continuous (col,row), then find which
+// block rect (from gameState.blocks) contains that tile position.
+function findBlockAt(mx, my) {
+  if (!gameState?.blocks) return null;
+  const A = (mx - camX) / (TILE_W / 2);
+  const B = (my - camY) / (TILE_H / 2);
+  const col = (A + B) / 2;
+  const row = (B - A) / 2;
+  for (const [posKey, info] of Object.entries(gameState.blocks)) {
+    const [x0, y0, x1, y1] = info.rect;
+    if (col >= x0 && col < x1 + 1 && row >= y0 && row < y1 + 1) {
+      const [br, bc] = posKey.split(',').map(Number);
+      return { br, bc, ...info };
+    }
+  }
+  return null;
+}
+
+function handleBuildModeClick(mx, my) {
+  const blk = findBlockAt(mx, my);
+  if (!blk) return;
+  if (blk.key) {
+    const kind = gameState.locations?.[blk.key]?.kind;
+    if (kind === 'house') openHouseManageModal(blk.key);
+    else showBuildHint('这是镇上固定建筑，无法编辑～');
+  } else {
+    openBuildHouseModal(blk.br, blk.bc);
+  }
+}
+
+// Highlight every block while in build mode: ghost ring (buildable beyond
+// the edge), vacant lots, custom houses, and fixed buildings each get a
+// distinct tint so it's clear what's clickable.
+function drawBuildOverlay() {
+  if (!buildMode || !gameState?.blocks) return;
+  const tw = TILE_W, th = TILE_H;
+  ctx.save();
+  for (const info of Object.values(gameState.blocks)) {
+    const [x0, y0, x1, y1] = info.rect;
+    const N = isoToScreen(x0, y0);
+    const E = isoToScreen(x1, y0);
+    const S = isoToScreen(x1, y1);
+    const W = isoToScreen(x0, y1);
+    ctx.beginPath();
+    ctx.moveTo(N.x,        N.y);
+    ctx.lineTo(E.x + tw/2, E.y + th/2);
+    ctx.lineTo(S.x,        S.y + th);
+    ctx.lineTo(W.x - tw/2, W.y + th/2);
+    ctx.closePath();
+
+    let fill = null, stroke = 'rgba(120,120,120,0.4)', dash = [];
+    if (info.ghost) {
+      fill = 'rgba(120,200,120,0.18)'; stroke = 'rgba(70,160,90,0.9)'; dash = [6, 4];
+    } else if (info.key === null) {
+      fill = 'rgba(120,190,255,0.22)'; stroke = 'rgba(50,130,210,0.9)';
+    } else {
+      const kind = gameState.locations?.[info.key]?.kind;
+      if (kind === 'house') { fill = 'rgba(255,205,110,0.16)'; stroke = 'rgba(225,150,30,0.85)'; }
+    }
+    ctx.setLineDash(dash);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function renderStyleSwatches() {
+  const row = document.getElementById('bh-style-row');
+  row.innerHTML = '';
+  const styles = gameState?.house_styles || {};
+  const keys = Object.keys(styles);
+  if (!keys.includes(selectedStyle)) selectedStyle = keys[0] || 'cabin';
+  for (const [key, sty] of Object.entries(styles)) {
+    const sw = document.createElement('div');
+    sw.className = 'style-swatch' + (key === selectedStyle ? ' selected' : '');
+    sw.style.background = sty.color;
+    sw.textContent = sty.label;
+    sw.onclick = () => { selectedStyle = key; renderStyleSwatches(); };
+    row.appendChild(sw);
+  }
+}
+
+function _populateOccupantSelect(selectEl, preselect = '') {
+  selectEl.innerHTML = '<option value="">空置（稍后安排）</option>';
+  for (const a of (gameState?.agents || [])) {
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = a.name;
+    if (a.id === preselect) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+}
+
+function openBuildHouseModal(br, bc) {
+  pendingBlock = { br, bc };
+  renderStyleSwatches();
+  _populateOccupantSelect(document.getElementById('bh-occupant'));
+  document.getElementById('bh-msg').textContent = '';
+  updateBuildCostLine();
+  document.getElementById('build-house-overlay').classList.add('open');
+}
+function closeBuildHouseModal() {
+  document.getElementById('build-house-overlay').classList.remove('open');
+  pendingBlock = null;
+}
+async function submitBuildHouse() {
+  if (!pendingBlock) return;
+  const btn = document.getElementById('bh-submit');
+  btn.disabled = true; btn.textContent = '建造中…';
+  try {
+    const resp = await fetch('/api/map/build-house', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        block_row: pendingBlock.br,
+        block_col: pendingBlock.bc,
+        style: selectedStyle,
+        occupant_agent_id: document.getElementById('bh-occupant').value,
+      }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.status === 'ok') {
+      document.getElementById('bh-msg').style.color = '#4CAF50';
+      document.getElementById('bh-msg').textContent = `✓ ${data.label} 建好了！`;
+      setTimeout(closeBuildHouseModal, 900);
+    } else {
+      document.getElementById('bh-msg').style.color = '#f44336';
+      document.getElementById('bh-msg').textContent = data.error || '建造失败，请重试';
+    }
+  } catch (e) {
+    document.getElementById('bh-msg').style.color = '#f44336';
+    document.getElementById('bh-msg').textContent = '网络错误：' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '建造 ✓';
+    updateBuildCostLine();
+  }
+}
+
+function updateBuildCostLine() {
+  const cost = gameState?.economy?.build_house_cost ?? 450;
+  const funds = gameState?.town_funds ?? 0;
+  const el = document.getElementById('bh-cost');
+  const btn = document.getElementById('bh-submit');
+  el.textContent = `建造成本 ${moneyText(cost)} · 小镇资金 ${moneyText(funds)}`;
+  el.style.color = funds >= cost ? '#7A5A2A' : '#D85A42';
+  if (btn) btn.disabled = funds < cost;
+}
+
+function openHouseManageModal(houseKey) {
+  currentHouseKey = houseKey;
+  const loc = gameState.locations?.[houseKey];
+  document.getElementById('hm-title').textContent = `🏠 ${loc?.label || houseKey}`;
+  const currentOccupant = (gameState.agents || []).find(a => a.home === houseKey);
+  _populateOccupantSelect(document.getElementById('hm-occupant'), currentOccupant?.id || '');
+  document.getElementById('hm-msg').textContent = '';
+  document.getElementById('house-manage-overlay').classList.add('open');
+}
+function closeHouseManageModal() {
+  document.getElementById('house-manage-overlay').classList.remove('open');
+  currentHouseKey = null;
+}
+async function submitAssignResident() {
+  if (!currentHouseKey) return;
+  const btn = document.getElementById('hm-submit');
+  btn.disabled = true; btn.textContent = '保存中…';
+  try {
+    const resp = await fetch('/api/map/assign-resident', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        house_key: currentHouseKey,
+        occupant_agent_id: document.getElementById('hm-occupant').value,
+      }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.status === 'ok') {
+      document.getElementById('hm-msg').style.color = '#4CAF50';
+      document.getElementById('hm-msg').textContent = '✓ 已更新';
+      setTimeout(closeHouseManageModal, 700);
+    } else {
+      document.getElementById('hm-msg').style.color = '#f44336';
+      document.getElementById('hm-msg').textContent = data.error || '保存失败';
+    }
+  } catch (e) {
+    document.getElementById('hm-msg').style.color = '#f44336';
+    document.getElementById('hm-msg').textContent = '网络错误：' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '保存 ✓';
+  }
+}
+async function submitRemoveHouse() {
+  if (!currentHouseKey) return;
+  if (!confirm('确定要拆除这栋房子吗？住户会被安排到公寓。')) return;
+  const btn = document.getElementById('bh-remove-btn');
+  btn.disabled = true; btn.textContent = '拆除中…';
+  try {
+    const resp = await fetch('/api/map/remove-house', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ house_key: currentHouseKey }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.status === 'ok') {
+      closeHouseManageModal();
+    } else {
+      document.getElementById('hm-msg').style.color = '#f44336';
+      document.getElementById('hm-msg').textContent = data.error || '拆除失败';
+    }
+  } catch (e) {
+    document.getElementById('hm-msg').style.color = '#f44336';
+    document.getElementById('hm-msg').textContent = '网络错误：' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '🔨 拆除房屋';
+  }
+}
+
+// ============================================================
 // ADD-AGENT MODAL
 // ============================================================
 function openAddAgentModal() {
@@ -2902,6 +3305,9 @@ function openAddAgentModal() {
   document.getElementById('f-name').value = '';
   document.getElementById('f-job').value = '';
   document.getElementById('f-personality').value = '';
+  document.getElementById('f-background').value = '';
+  document.getElementById('f-goals').value = '';
+  document.getElementById('f-speaking-rules').value = '';
   document.getElementById('add-agent-overlay').classList.add('open');
   setTimeout(() => document.getElementById('f-name').focus(), 100);
 }
@@ -2921,6 +3327,9 @@ async function submitNewAgent() {
     occupation: document.getElementById('f-job').value.trim() || '居民',
     personality: document.getElementById('f-personality').value.trim()
       || `${name}是一个友善开朗的小镇居民。`,
+    background: document.getElementById('f-background').value.trim(),
+    goals: parseListField(document.getElementById('f-goals').value),
+    speaking_rules: parseListField(document.getElementById('f-speaking-rules').value),
     home: document.getElementById('f-home').value || 'apartment',
     color: document.getElementById('f-color').value,
     skin: document.getElementById('f-skin').value,
@@ -2953,6 +3362,14 @@ async function submitNewAgent() {
   }
 }
 
+function parseListField(value) {
+  return (value || '')
+    .split(/[\n;；]+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
 // ============================================================
 // HIT DETECTION
 // ============================================================
@@ -2972,7 +3389,11 @@ async function submitNewAgent() {
     if (e.target === document.getElementById('add-agent-overlay')) closeAddAgentModal();
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeAddAgentModal();
+    if (e.key === 'Escape') {
+      closeAddAgentModal();
+      closeBuildHouseModal();
+      closeHouseManageModal();
+    }
   });
 
   // Start WebSocket and render loop
