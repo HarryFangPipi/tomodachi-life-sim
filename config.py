@@ -12,7 +12,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "host": "0.0.0.0",
     "port": 8000,
     "ollama_url": "http://localhost:11434",
-    "preferred_models": ["qwen3.6", "qwen3", "llama3.2:3b", "llama3.2", "llama3:8b", "llama3", "mistral", "phi3", "gemma2:2b"],
+    "preferred_models": ["qwen3.6", "gpt-oss:20b", "deepseek-r1:8b", "qwen3", "llama3.2:3b", "llama3.2", "llama3:8b", "llama3", "mistral", "phi3", "gemma2:2b"],
     "tick_seconds": 0.8,
     "game_hours_per_tick": 0.05,
     "max_agents": 24,
